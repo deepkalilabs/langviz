@@ -2,41 +2,35 @@ version: '3.8'
 
 services:
   backend:
-    build:
+    build: 
       context: .
       dockerfile: docker/Dockerfile.backend
+    # command: python manage.py runserver
+    volumes:
+      - .:/app
     ports:
-      - "3001:3001"
-    environment:
-      - APP_PORT=3001
+      - "8000:8000"
     depends_on:
       db:
-        condition: service_healthy    
-    volumes:
-      - ./backend:/backend
-    links: 
-        - db
-    command: >
-      /bin/sh -c "
-      flask db upgrade &&
-      flask run --host=0.0.0.0 --port=3001 --reload
-      "
+        condition: service_healthy
+    environment:
+      - DATABASE_URL=postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
     networks:
       - djangonetwork
 
-  frontend:
-    environment:
-      - WATCHPACK_POLLING=true
-    build:
-      context: .
-      dockerfile: docker/Dockerfile.frontend
-    tty: true
-    volumes:
-      - ./frontend:/frontend
-    networks:
-      - djangonetwork
-    ports:
-      - "3000:3000"
+  # frontend:
+  #   environment:
+  #     - WATCHPACK_POLLING=true
+  #   build:
+  #     context: .
+  #     dockerfile: docker/Dockerfile.frontend
+  #   tty: true
+  #   volumes:
+  #     - ./frontend:/frontend
+  #   networks:
+  #     - djangonetwork
+  #   ports:
+  #     - "3000:3000"
 
   db:
     image: pgvector/pgvector:pg16
@@ -49,7 +43,7 @@ services:
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB} -t 1"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB} -t 1"]
       interval: 10s
       timeout: 10s
       retries: 10
