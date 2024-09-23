@@ -1,0 +1,19 @@
+# Use a node base image
+FROM node:latest
+
+# Set the working directory in the container
+WORKDIR /frontend
+
+# Copy package.json and install dependencies
+COPY ./frontend/package*.json ./
+RUN npm install
+
+# Bundle app source
+COPY frontend/ .
+
+EXPOSE 3000
+
+# Start the app
+CMD ["npm", "run", "dev"]
+
+
