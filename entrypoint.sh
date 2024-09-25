@@ -25,4 +25,6 @@ ls -la
 python manage.py migrate
 python manage.py createsuperuser --noinput || true
 # Start server
-exec python manage.py runserver 0.0.0.0:8000
+python manage.py runserver 0.0.0.0:8000
+
+exec "$@"
