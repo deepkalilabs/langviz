@@ -11,8 +11,13 @@ import {
 } from "@/components/ui/table"
 import { Button } from "@/components/ui/button"
 
+
+interface RowData {
+  [key: string]: string | number | boolean;
+}
+
 interface DataTableProps {
-  data: any[];
+  data: RowData[];
 }
 
 const DataTable: React.FC<DataTableProps> = ({ data }) => {
