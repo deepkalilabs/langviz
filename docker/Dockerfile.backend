@@ -30,7 +30,7 @@ EOF
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy the project code into the container
-COPY . .
+COPY ./backend/ .
 
 # Run the entrypoint script
 ENTRYPOINT ["/app/entrypoint.sh"]
