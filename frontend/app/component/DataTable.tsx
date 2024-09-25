@@ -11,11 +11,8 @@ import {
 } from "@/components/ui/table"
 import { Button } from "@/components/ui/button"
 
-// Define a type for your data structure
-type DataItem = Record<string, string | number>;
-
 interface DataTableProps {
-  data: DataItem[];
+  data: any[];
 }
 
 const DataTable: React.FC<DataTableProps> = ({ data }) => {
