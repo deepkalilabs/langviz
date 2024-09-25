@@ -1,61 +1,47 @@
 'use client'
 
-import React, { useState } from 'react';
-import { useCSVReader, formatFileSize } from "react-papaparse";
-import RightBarSheet from './RightBarSheet';
+import React, { useState, useCallback } from 'react';
+import { useDropzone } from 'react-dropzone';
+import Papa from 'papaparse';
 
-const UploadCSV: React.FC = () => {
-  const { CSVReader } = useCSVReader();
-  const [data, setData] = useState<any[]>([]);
-  const [isSheetOpen, setIsSheetOpen] = useState(false);
+interface FileWithPath extends File {
+  path?: string;
+}
 
-  const handleOnDrop = (results: any) => {
-    setData(results.data);
-    setIsSheetOpen(true);
-    console.log('Parsed CSV data:', results.data);
-  };
+const UploadCSV: React.FC<{
+  setData: React.Dispatch<React.SetStateAction<Record<string, string | number>[]>>;
+}> = ({ setData }) => {
+  const [file, setFile] = useState<FileWithPath | null>(null);
+  
+  const onDrop = useCallback((acceptedFiles: FileWithPath[]) => {
+    if (acceptedFiles.length > 0) {
+      const file = acceptedFiles[0];
+      setFile(file);
+      
+      Papa.parse(file, {
+        complete: (results: Papa.ParseResult<Record<string, string | number>>) => {
+          setData(results.data);
+        },
+        header: true,
+        dynamicTyping: true,
+      });
+    }
+  }, [setData]);
 
-  const handleOnError = (err: any) => {
-    console.error('CSV parsing error:', err);
-    alert('Error parsing CSV file. Please check the file and try again.');
-  };
-
-  const handleOnRemoveFile = () => {
-    setData([]);
-    setIsSheetOpen(false);
-  };
+  const { getRootProps, getInputProps, isDragActive } = useDropzone({
+    onDrop,
+    accept: { "text/csv": [".csv"] },
+  });
 
   return (
-    <div className="upload-csv-container">
-      <h2>Upload CSV File</h2>
-      <CSVReader
-        onUploadAccepted={handleOnDrop}
-        onError={handleOnError}
-        config={{
-          header: true,
-          skipEmptyLines: true,
-        }}
-      >
-        {({ getRootProps, acceptedFile }: any) => (
-          <>
-            <div {...getRootProps()} style={{border: '1px solid #ccc', padding: '20px', textAlign: 'center'}}>
-              {acceptedFile ? (
-                <div>
-                  <strong>Uploaded file:</strong> {acceptedFile.name}
-                  <button onClick={handleOnRemoveFile}>Remove</button>
-                </div>
-              ) : (
-                <span>Drop CSV file here or click to upload.</span>
-              )}
-            </div>
-          </>
-        )}
-      </CSVReader>
-      <RightBarSheet 
-        csvData={data} 
-        isOpen={isSheetOpen} 
-        onOpenChange={setIsSheetOpen}
-      />
+    <div {...getRootProps()} className="border-2 border-dashed border-gray-300 p-4 text-center cursor-pointer">
+      <input {...getInputProps()} />
+      {isDragActive ? (
+        <p>Drop the CSV file here ...</p>
+      ) : (
+        <p>Drag and drop a CSV file here, or click to select one</p>
+      )}
+      {file && <p>Selected file: {file.name}</p>}
     </div>
   );
 };

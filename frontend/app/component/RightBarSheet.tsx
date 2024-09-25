@@ -4,7 +4,7 @@ import React from 'react';
 import DataTable from './DataTable';
 
 interface RightBarSheetProps {
-  csvData: any[];
+  csvData: Record<string, string | number>[];
   isOpen: boolean;
   onOpenChange: (open: boolean) => void;
 }
