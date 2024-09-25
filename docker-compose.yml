@@ -6,7 +6,7 @@ services:
         context: ./
         dockerfile: docker/Dockerfile.backend
     volumes:
-        - ./backend:/usr/src/app/
+        - ./backend:/usr/src/app/:delegated
     ports:
         - 8000:8000
     depends_on:
@@ -61,5 +61,4 @@ networks:
 
 volumes:
   pgdata:
-  zap_reports:
 
