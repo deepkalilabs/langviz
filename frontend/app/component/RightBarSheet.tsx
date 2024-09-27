@@ -4,19 +4,26 @@ import React, { useState, useEffect } from 'react';
 import DataTable from './DataTable';
 import Chat from './Chat';
 
-interface RightBarSheetProps {
-  csvData: Record<string, string | number>[];
-  isOpen: boolean;
-  onOpenChange: (open: boolean) => void;
+interface DataResponse {
+  id: number;
+  name: string;
+  data: Record<string, string | number>[];
+  user: number;
 }
 
-const RightBarSheet: React.FC<RightBarSheetProps> = ({ csvData, isOpen, onOpenChange }) => {
+interface RightBarSheetProps {
+  dataResponse: DataResponse;
+  isOpen: boolean;
+  onOpenChange: (isOpen: boolean) => void;
+}
+
+const RightBarSheet: React.FC<RightBarSheetProps> = ({ dataResponse, isOpen, onOpenChange }) => {
   const [showChat, setShowChat] = useState(false);
   
    // Reset showChat to false when csvData changes
    useEffect(() => {
     setShowChat(false);
-  }, [csvData]);
+  }, [dataResponse]);
 
   if (!isOpen) return null;
 
@@ -36,11 +43,11 @@ const RightBarSheet: React.FC<RightBarSheetProps> = ({ csvData, isOpen, onOpenCh
           </button>
         </div>
         <div className="flex-grow overflow-auto">
-          {showChat ? <Chat csvData={csvData} /> : <DataTable data={csvData} />}
+          {showChat ? <Chat dataResponse={dataResponse} /> : <DataTable dataResponse={dataResponse} />}
         </div>
         <div className="p-4 border-t">
           <p className="text-sm text-gray-500">
-            {showChat ? 'Chatting about' : 'Showing'} {csvData.length} rows.
+            {showChat ? 'Chatting about' : 'Showing'} {dataResponse.data.length} rows.
           </p>
           <button 
             onClick={() => onOpenChange(false)} 

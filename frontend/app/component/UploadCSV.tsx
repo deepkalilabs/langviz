@@ -3,16 +3,44 @@
 import React, { useState, useCallback } from 'react';
 import { useDropzone } from 'react-dropzone';
 import Papa from 'papaparse';
+import axios from 'axios';
+import { useQuery, useMutation } from '@tanstack/react-query';
 
 interface FileWithPath extends File {
   path?: string;
 }
 
-const UploadCSV: React.FC<{
-  setData: React.Dispatch<React.SetStateAction<Record<string, string | number>[]>>;
-}> = ({ setData }) => {
+interface DatasetResponse {
+  id: number;
+  name: string;
+  data: Record<string, string | number>[];
+  user: number;
+}
+
+interface UploadCSVProps {
+  onDataReceived: (data: DatasetResponse) => void;
+  onUploadComplete: () => void;
+}
+
+const UploadCSV: React.FC<UploadCSVProps> = ({ onDataReceived, onUploadComplete }) => {
   const [file, setFile] = useState<FileWithPath | null>(null);
-  
+  const [parsedData, setParsedData] = useState<Record<string, string | number>[]>([]);
+  const [shouldQuery, setShouldQuery] = useState(false);
+  const { isPending, error, data, isFetching, isSuccess } = useQuery({
+    queryKey: ['createDataset'],
+    queryFn: async () => {
+      const response = await axios.post('http://localhost:8000/api/datasets/', { 
+        name: file?.name ?? 'Untitled',
+        data: parsedData,
+        user: 1,
+      });
+      onDataReceived(response.data);
+      onUploadComplete();
+      return response.data
+    },
+    enabled: shouldQuery,
+  })
+
   const onDrop = useCallback((acceptedFiles: FileWithPath[]) => {
     if (acceptedFiles.length > 0) {
       const file = acceptedFiles[0];
@@ -20,18 +48,22 @@ const UploadCSV: React.FC<{
       
       Papa.parse(file, {
         complete: (results: Papa.ParseResult<Record<string, string | number>>) => {
-          setData(results.data);
+          setParsedData(results.data);
+          setShouldQuery(true);
         },
         header: true,
         dynamicTyping: true,
       });
     }
-  }, [setData]);
+  }, [setParsedData]);
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,
     accept: { "text/csv": [".csv"] },
   });
+
+  if (isFetching) return <p>Loading...</p>;
+
 
   return (
     <div {...getRootProps()} className="border-2 border-dashed border-gray-300 p-4 text-center cursor-pointer">
@@ -42,6 +74,7 @@ const UploadCSV: React.FC<{
         <p>Drag and drop a CSV file here, or click to select one</p>
       )}
       {file && <p>Selected file: {file.name}</p>}
+      {error && <p className='text-red-500'>Error: {error.message}</p>}
     </div>
   );
 };

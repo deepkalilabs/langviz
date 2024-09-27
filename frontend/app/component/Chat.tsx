@@ -5,11 +5,18 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import DataTable from './DataTable';
 
-interface ChatProps {
-  csvData: Record<string, string | number>[];
+interface DataResponse {
+  id: number;
+  name: string;
+  data: Record<string, string | number>[];
+  user: number;
 }
 
-const Chat: React.FC<ChatProps> = ({ csvData }) => {
+interface ChatProps {
+  dataResponse: DataResponse;
+}
+
+const Chat: React.FC<ChatProps> = ({ dataResponse }) => {
   const [messages, setMessages] = useState<{ role: 'user' | 'assistant', content: string }[]>([]);
   const [input, setInput] = useState('');
   const [showDataTable, setShowDataTable] = useState(false);
@@ -22,7 +29,7 @@ const Chat: React.FC<ChatProps> = ({ csvData }) => {
       setTimeout(() => {
         setMessages(prev => [...prev, { 
           role: 'assistant', 
-          content: `I've analyzed your CSV data with ${csvData.length} rows. What would you like to know about it?` 
+          content: `I've analyzed your CSV data with ${dataResponse.data.length} rows. What would you like to know about it?` 
         }]);
       }, 1000);
       setInput('');

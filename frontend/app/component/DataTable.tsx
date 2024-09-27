@@ -12,21 +12,25 @@ import {
 import { Button } from "@/components/ui/button"
 
 
-interface RowData {
-  [key: string]: string | number | boolean;
+interface DataResponse {
+    id: number;
+    name: string;
+    data: Record<string, string | number>[];
+    user: number;
 }
 
 interface DataTableProps {
-  data: RowData[];
+    dataResponse: DataResponse;
 }
 
-const DataTable: React.FC<DataTableProps> = ({ data }) => {
+const DataTable: React.FC<DataTableProps> = ({ dataResponse }) => {
   const [showAllRows, setShowAllRows] = useState(false);
   
-  if (data.length === 0) return null;
+  if (dataResponse.data.length === 0) return null;
 
-  const headers = Object.keys(data[0]);
-  const displayedData = showAllRows ? data : data.slice(0, 10);
+  debugger;
+  const headers = Object.keys(dataResponse.data[0]);
+  const displayedData = showAllRows ? dataResponse.data : dataResponse.data.slice(0, 10);
 
   return (
     <div className="p-4">
@@ -50,7 +54,7 @@ const DataTable: React.FC<DataTableProps> = ({ data }) => {
           </TableBody>
         </Table>
       </div>
-      {data.length > 10 && (
+      {dataResponse.data.length > 10 && (
         <div className="mt-4">
           <Button 
             onClick={() => setShowAllRows(!showAllRows)}
