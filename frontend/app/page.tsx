@@ -40,7 +40,7 @@ export default function Home() {
         />
         {isRightBarOpen && (
           <RightBarSheet 
-            dataResponse={data} 
+            dataResponse={data as DataResponse} 
             isOpen={isRightBarOpen} 
             onOpenChange={setIsRightBarOpen}
           />

@@ -4,7 +4,7 @@ import React, { useState, useCallback } from 'react';
 import { useDropzone } from 'react-dropzone';
 import Papa from 'papaparse';
 import axios from 'axios';
-import { useQuery, useMutation } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 
 interface FileWithPath extends File {
   path?: string;
@@ -15,6 +15,7 @@ interface DatasetResponse {
   name: string;
   data: Record<string, string | number>[];
   user: number;
+  uploaded_at: string;
 }
 
 interface UploadCSVProps {
@@ -26,7 +27,7 @@ const UploadCSV: React.FC<UploadCSVProps> = ({ onDataReceived, onUploadComplete 
   const [file, setFile] = useState<FileWithPath | null>(null);
   const [parsedData, setParsedData] = useState<Record<string, string | number>[]>([]);
   const [shouldQuery, setShouldQuery] = useState(false);
-  const { isPending, error, data, isFetching, isSuccess } = useQuery({
+  const { error, isFetching } = useQuery({
     queryKey: ['createDataset'],
     queryFn: async () => {
       const response = await axios.post('http://localhost:8000/api/datasets/', { 

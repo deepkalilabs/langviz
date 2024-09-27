@@ -57,7 +57,7 @@ const Chat: React.FC<ChatProps> = ({ dataResponse }) => {
       </div>
       {showDataTable && (
         <div className="p-4 border-t border-b">
-          <DataTable data={csvData} />
+          <DataTable dataResponse={dataResponse} />
         </div>
       )}
       <div className="p-4 border-t">

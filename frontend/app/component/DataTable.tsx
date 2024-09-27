@@ -27,8 +27,7 @@ const DataTable: React.FC<DataTableProps> = ({ dataResponse }) => {
   const [showAllRows, setShowAllRows] = useState(false);
   
   if (dataResponse.data.length === 0) return null;
-
-  debugger;
+  
   const headers = Object.keys(dataResponse.data[0]);
   const displayedData = showAllRows ? dataResponse.data : dataResponse.data.slice(0, 10);
 
