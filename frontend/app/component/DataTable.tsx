@@ -10,24 +10,18 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import { Button } from "@/components/ui/button"
+import { DataSetApiResponse } from './types';
 
-
-interface DataResponse {
-    id: number;
-    name: string;
-    data: Record<string, string | number>[];
-    user: number;
-}
 
 interface DataTableProps {
-    dataResponse: DataResponse;
+    dataResponse: DataSetApiResponse;
 }
 
 const DataTable: React.FC<DataTableProps> = ({ dataResponse }) => {
   const [showAllRows, setShowAllRows] = useState(false);
   
   if (dataResponse.data.length === 0) return null;
-  
+
   const headers = Object.keys(dataResponse.data[0]);
   const displayedData = showAllRows ? dataResponse.data : dataResponse.data.slice(0, 10);
 

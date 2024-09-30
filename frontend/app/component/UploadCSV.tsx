@@ -1,70 +1,76 @@
 'use client'
 
-import React, { useState, useCallback } from 'react';
+import React, { useCallback } from 'react';
 import { useDropzone } from 'react-dropzone';
-import Papa from 'papaparse';
 import axios from 'axios';
-import { useQuery } from '@tanstack/react-query';
-
-interface FileWithPath extends File {
-  path?: string;
-}
-
-interface DatasetResponse {
-  id: number;
-  name: string;
-  data: Record<string, string | number>[];
-  user: number;
-  uploaded_at: string;
-}
+import { useMutation } from '@tanstack/react-query';
+import Papa from 'papaparse';
+import { DataSetApiResponse } from './types';
 
 interface UploadCSVProps {
-  onDataReceived: (data: DatasetResponse) => void;
+  onDataReceived: (data: DataSetApiResponse) => void;
   onUploadComplete: () => void;
 }
 
-const UploadCSV: React.FC<UploadCSVProps> = ({ onDataReceived, onUploadComplete }) => {
-  const [file, setFile] = useState<FileWithPath | null>(null);
-  const [parsedData, setParsedData] = useState<Record<string, string | number>[]>([]);
-  const [shouldQuery, setShouldQuery] = useState(false);
-  const { error, isFetching } = useQuery({
-    queryKey: ['createDataset'],
-    queryFn: async () => {
-      const response = await axios.post('http://localhost:8000/api/datasets/', { 
-        name: file?.name ?? 'Untitled',
-        data: parsedData,
-        user: 1,
-      });
-      onDataReceived(response.data);
-      onUploadComplete();
-      return response.data
-    },
-    enabled: shouldQuery,
-  })
+interface ParsedData {
+  file: File;
+  data: any[];
+}
 
-  const onDrop = useCallback((acceptedFiles: FileWithPath[]) => {
+const UploadCSV: React.FC<UploadCSVProps> = ({ onDataReceived, onUploadComplete }) => {
+  const uploadMutation = useMutation({
+    mutationFn: async ({ file, data }: ParsedData) => {
+      debugger;
+      const formData = new FormData();
+      //formData.append('file', file);
+      formData.append('name', file.name);
+      formData.append('user', '1'); // Assuming user ID 1 for this example
+      formData.append('data', JSON.stringify(data));
+
+      const response = await axios.post<DataSetApiResponse>(
+        'http://localhost:8000/api/datasets/',
+        formData,
+        {
+          headers: { 'Content-Type': 'multipart/form-data' },
+        }
+      );
+      return response.data;
+    },
+    onSuccess: (data) => {
+      onDataReceived(data);
+      onUploadComplete();
+    },
+    onError: (error) => {
+      if (axios.isAxiosError(error) && error.response) {
+        console.error('Error uploading file:', error.response.data);
+      } else {
+        console.error('Error uploading file:', error);
+      }
+    },
+  });
+
+  const onDrop = useCallback((acceptedFiles: File[]) => {
     if (acceptedFiles.length > 0) {
       const file = acceptedFiles[0];
-      setFile(file);
-      
+
       Papa.parse(file, {
-        complete: (results: Papa.ParseResult<Record<string, string | number>>) => {
-          setParsedData(results.data);
-          setShouldQuery(true);
+        complete: (results) => {
+          const parsedData = results.data as Record<string, string | number>[];
+          uploadMutation.mutate({ file, data: parsedData });
         },
         header: true,
         dynamicTyping: true,
+        error: (error) => {
+          console.error('Error parsing CSV:', error);
+        },
       });
     }
-  }, [setParsedData]);
+  }, [uploadMutation]);
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,
     accept: { "text/csv": [".csv"] },
   });
-
-  if (isFetching) return <p>Loading...</p>;
-
 
   return (
     <div {...getRootProps()} className="border-2 border-dashed border-gray-300 p-4 text-center cursor-pointer">
@@ -74,8 +80,13 @@ const UploadCSV: React.FC<UploadCSVProps> = ({ onDataReceived, onUploadComplete 
       ) : (
         <p>Drag and drop a CSV file here, or click to select one</p>
       )}
-      {file && <p>Selected file: {file.name}</p>}
-      {error && <p className='text-red-500'>Error: {error.message}</p>}
+      {uploadMutation.isPending && <p>Uploading...</p>}
+      {uploadMutation.isError && (
+        <p className='text-red-500'>
+          Error: {uploadMutation.error instanceof Error ? uploadMutation.error.message : 'Unknown error'}
+        </p>
+      )}
+      {uploadMutation.isSuccess && <p className='text-green-500'>Upload successful!</p>}
     </div>
   );
 };

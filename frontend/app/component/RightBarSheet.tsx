@@ -3,16 +3,10 @@
 import React, { useState, useEffect } from 'react';
 import DataTable from './DataTable';
 import Chat from './Chat';
-
-interface DataResponse {
-  id: number;
-  name: string;
-  data: Record<string, string | number>[];
-  user: number;
-}
+import { DataSetApiResponse } from './types';
 
 interface RightBarSheetProps {
-  dataResponse: DataResponse;
+  dataResponse: DataSetApiResponse;
   isOpen: boolean;
   onOpenChange: (isOpen: boolean) => void;
 }

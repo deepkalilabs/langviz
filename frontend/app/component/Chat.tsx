@@ -4,16 +4,11 @@ import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import DataTable from './DataTable';
+import { DataSetApiResponse } from './types';
 
-interface DataResponse {
-  id: number;
-  name: string;
-  data: Record<string, string | number>[];
-  user: number;
-}
 
 interface ChatProps {
-  dataResponse: DataResponse;
+  dataResponse: DataSetApiResponse;
 }
 
 const Chat: React.FC<ChatProps> = ({ dataResponse }) => {

@@ -4,32 +4,26 @@ import React, { useState, useCallback } from 'react';
 import Image from "next/image";
 import UploadCSV from "./component/UploadCSV";
 import RightBarSheet from "./component/RightBarSheet";
+import { DataSetApiResponse } from './component/types'; 
 
-interface DataResponse {
-  data: Record<string, string | number>[],
-  id: number,
-  name: string,
-  uploaded_at: string,
-  user: number
-}
+
 
 export default function Home() {
-  const [data, setData] = useState<DataResponse | null>(null);
+  const [data, setData] = useState<DataSetApiResponse | null>(null);
   const [isRightBarOpen, setIsRightBarOpen] = useState(false);
 
-  const handleDataReceived = useCallback((newData: DataResponse) => {
+  const handleDataReceived = useCallback((newData: DataSetApiResponse) => {
     console.log('CSV data response:', newData);
     setData(newData);
-  }, []);
+  }, [data]);
 
   const handleUploadComplete = useCallback(() => {
     console.log('Upload complete...opening right bar');
     setIsRightBarOpen(true);
-  }, []);
+  }, [isRightBarOpen]);
 
   console.log('isRightBarOpen', isRightBarOpen);
   console.log('data', data);
-  debugger;
 
   return (
     <div className="grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20 font-[family-name:var(--font-geist-sans)]">
@@ -40,7 +34,7 @@ export default function Home() {
         />
         {isRightBarOpen && (
           <RightBarSheet 
-            dataResponse={data as DataResponse} 
+            dataResponse={data as DataSetApiResponse} 
             isOpen={isRightBarOpen} 
             onOpenChange={setIsRightBarOpen}
           />
