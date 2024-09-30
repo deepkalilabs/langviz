@@ -14,13 +14,12 @@ interface UploadCSVProps {
 
 interface ParsedData {
   file: File;
-  data: any[];
+  data: Record<string, string | number | boolean | null>[];
 }
 
 const UploadCSV: React.FC<UploadCSVProps> = ({ onDataReceived, onUploadComplete }) => {
   const uploadMutation = useMutation({
     mutationFn: async ({ file, data }: ParsedData) => {
-      debugger;
       const formData = new FormData();
       //formData.append('file', file);
       formData.append('name', file.name);
