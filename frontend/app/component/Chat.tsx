@@ -1,35 +1,58 @@
 'use client'
 
-import React, { useState } from 'react';
+import React, { useState, useEffect, SetStateAction } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import DataTable from './DataTable';
 import { DataSetApiResponse } from './types';
-
+import D3Visualization from './D3Visualization';
+import Papa from 'papaparse';
 
 interface ChatProps {
   dataResponse: DataSetApiResponse;
 }
 
+interface Message {
+  role: 'user' | 'assistant';
+  content: string;
+  visualization?: boolean;
+}
+
 const Chat: React.FC<ChatProps> = ({ dataResponse }) => {
-  const [messages, setMessages] = useState<{ role: 'user' | 'assistant', content: string }[]>([]);
+  const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [showDataTable, setShowDataTable] = useState(false);
+  const [chartConfig, setChartConfig] = useState(null);
+  const [csvData, setCsvData] = useState<any>(dataResponse.data);
+
+  useEffect(() => {
+    // Fetch JSON configuration
+    fetch('d3/test3.json')
+      .then(response => response.json())
+      .then(data => setChartConfig(data))
+      .catch(error => console.error('Error loading chart configuration:', error));  
+
+    }, []);
 
   const handleSendMessage = () => {
     if (input.trim()) {
       setMessages([...messages, { role: 'user', content: input }]);
       // Here you would typically send the message to a backend for processing
-      // For now, we'll just add a mock response
+      // For now, we'll just add a mock response with a visualization
       setTimeout(() => {
         setMessages(prev => [...prev, { 
           role: 'assistant', 
-          content: `I've analyzed your CSV data with ${dataResponse.data.length} rows. What would you like to know about it?` 
+          content: `Here's a visualization based on your data:`,
+          visualization: true
         }]);
       }, 1000);
       setInput('');
     }
   };
+
+  if (!chartConfig || !csvData) {
+    return <div>Loading chart data and configuration...</div>;
+  }
 
   return (
     <div className="flex flex-col h-full">
@@ -43,6 +66,16 @@ const Chat: React.FC<ChatProps> = ({ dataResponse }) => {
               message.role === 'user' ? 'bg-blue-500 text-white' : 'bg-gray-200 text-gray-800'
             }`}>
               {message.content}
+              {message.visualization && (
+                <div className="mt-2">
+                  <D3Visualization 
+                    csvURL={'data/test3.csv'}
+                    d3Code={chartConfig?.d3 ?? ''}
+                    width={500}
+                    height={500}
+                  />
+                </div>
+              )}
             </div>
             {message.role === 'user' && (
               <div className="w-8 h-8 rounded-full bg-gray-400 flex-shrink-0 ml-2"></div>
