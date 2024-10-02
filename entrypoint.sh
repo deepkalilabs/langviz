@@ -2,10 +2,14 @@
 
 set -e
 
-while ! nc -z db 5432; do
-  sleep 1
-done
+# while ! netcat -z db 5432; do
+#   sleep 1
+# done
+# TODO: fix /usr/src/app -> /app
 
+cd /usr/src/app
+
+python manage.py makemigrations
 python manage.py migrate
 
 # Create superuser

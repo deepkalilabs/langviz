@@ -1,5 +1,5 @@
 # Use an official Python runtime as the base image
-FROM --platform=$BUILDPLATFORM python:3.12-alpine AS builder
+FROM --platform=$BUILDPLATFORM python:3.11 AS builder
 
 # Set environment variables
 ENV PYTHONDONTWRITEBYTECODE 1
@@ -17,20 +17,20 @@ RUN chmod +x /app/entrypoint.sh
 
 FROM builder as dev-envs
 RUN <<EOF
-apk update
-apk add git
+apt-get update
+apt-get install -y git
 EOF
 
 RUN <<EOF
-addgroup -S docker
-adduser -S --shell /bin/bash --ingroup docker vscode
+groupadd -r docker
+useradd -r -g docker -s /bin/bash vscode
 EOF
 
 # Install the project dependencies
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy the project code into the container
-COPY ./backend/ .
+# COPY ./backend/ .
 
 # Run the entrypoint script
 ENTRYPOINT ["/app/entrypoint.sh"]
