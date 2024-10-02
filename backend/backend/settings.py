@@ -45,6 +45,7 @@ INSTALLED_APPS = [
     'django_extensions',
     'chat.apps.ChatConfig',
     'data_management.apps.DataManagementConfig',
+    'llm_agents.apps.LlmAgeentsConfig',
     'accounts.apps.AccountsConfig',
 ]
 
@@ -55,7 +56,7 @@ MIDDLEWARE = [
     'django.contrib.sessions.middleware.SessionMiddleware',
     'corsheaders.middleware.CorsMiddleware',
     'django.middleware.common.CommonMiddleware',
-    'django.middleware.csrf.CsrfViewMiddleware',
+    # 'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
