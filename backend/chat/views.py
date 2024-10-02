@@ -76,7 +76,7 @@ class ChatSessionMessage(APIView):
     
     def post(self, request, format=None):
         questions = request.data.get('questions', [])
-        dataset = DatasetModel.objects.first()
+        dataset = DatasetModel.objects.last()
         print("dataset", dataset)
         pprint(dataset.enriched_columns_properties)
         pprint(dataset.enriched_dataset_schema)
