@@ -41,6 +41,7 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'chat',
+    'data_management.apps.DataManagementConfig',
     'django_extensions',
     'accounts',
     'llm_agents',

@@ -25,19 +25,19 @@ services:
     networks:
       - djangonetwork
 
-  # frontend:
-  #   environment:
-  #     - WATCHPACK_POLLING=true
-  #   build:
-  #     context: .
-  #     dockerfile: docker/Dockerfile.frontend
-  #   tty: true
-  #   volumes:
-  #     - ./frontend:/frontend
-  #   networks:
-  #     - djangonetwork
-  #   ports:
-  #     - "3000:3000"
+  frontend:
+    environment:
+      - WATCHPACK_POLLING=true
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.frontend
+    tty: true
+    volumes:
+      - ./frontend:/frontend
+    networks:
+      - djangonetwork
+    ports:
+      - "3000:3000"
 
   db:
     image: pgvector/pgvector:pg16
