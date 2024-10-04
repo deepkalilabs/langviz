@@ -3,21 +3,23 @@
 import React, { useState, useEffect } from 'react';
 import DataTable from './DataTable';
 import Chat from './Chat';
-import { DataSetApiResponse } from './types';
+import { DataSetApiResponse, OriginalDataSet } from './types';
 
 interface RightBarSheetProps {
   dataResponse: DataSetApiResponse;
+  originalData: OriginalDataSet;
   isOpen: boolean;
   onOpenChange: (isOpen: boolean) => void;
 }
 
-const RightBarSheet: React.FC<RightBarSheetProps> = ({ dataResponse, isOpen, onOpenChange }) => {
+const RightBarSheet: React.FC<RightBarSheetProps> = ({ dataResponse, originalData, isOpen, onOpenChange }) => {
   const [showChat, setShowChat] = useState(false);
+  debugger
   
-   // Reset showChat to false when csvData changes
-   useEffect(() => {
+  // Reset showChat to false when csvData changes
+  useEffect(() => {
     setShowChat(false);
-  }, [dataResponse]);
+  }, [originalData]);
 
   if (!isOpen) return null;
 
@@ -37,11 +39,11 @@ const RightBarSheet: React.FC<RightBarSheetProps> = ({ dataResponse, isOpen, onO
           </button>
         </div>
         <div className="flex-grow overflow-auto">
-          {showChat ? <Chat dataResponse={dataResponse} /> : <DataTable dataResponse={dataResponse} />}
+          {showChat ? <Chat dataResponse={dataResponse} originalData={originalData} /> : <DataTable dataResponse={dataResponse} originalData={originalData} />}
         </div>
         <div className="p-4 border-t">
           <p className="text-sm text-gray-500">
-            {showChat ? 'Chatting about' : 'Showing'} {dataResponse.data.length} rows.
+            {showChat ? 'Chatting about' : 'Showing'} {originalData.data.length} rows.
           </p>
           <button 
             onClick={() => onOpenChange(false)} 

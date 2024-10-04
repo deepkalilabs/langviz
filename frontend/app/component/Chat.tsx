@@ -4,12 +4,12 @@ import React, { useState, useEffect, SetStateAction } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import DataTable from './DataTable';
-import { DataSetApiResponse } from './types';
+import { DataSetApiResponse, OriginalDataSet } from './types';
 import D3Visualization from './D3Visualization';
-import Papa from 'papaparse';
 
 interface ChatProps {
   dataResponse: DataSetApiResponse;
+  originalData: OriginalDataSet;
 }
 
 interface Message {
@@ -18,12 +18,12 @@ interface Message {
   visualization?: boolean;
 }
 
-const Chat: React.FC<ChatProps> = ({ dataResponse }) => {
+const Chat: React.FC<ChatProps> = ({ dataResponse, originalData }) => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [showDataTable, setShowDataTable] = useState(false);
   const [chartConfig, setChartConfig] = useState(null);
-  const [csvData, setCsvData] = useState<any>(dataResponse.data);
+  const [csvData, setCsvData] = useState<any>(originalData);
 
   useEffect(() => {
     // Fetch JSON configuration
@@ -85,7 +85,7 @@ const Chat: React.FC<ChatProps> = ({ dataResponse }) => {
       </div>
       {showDataTable && (
         <div className="p-4 border-t border-b">
-          <DataTable dataResponse={dataResponse} />
+          <DataTable dataResponse={dataResponse} originalData={originalData} />
         </div>
       )}
       <div className="p-4 border-t">

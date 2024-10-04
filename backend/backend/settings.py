@@ -45,7 +45,7 @@ INSTALLED_APPS = [
     'django_extensions',
     'chat.apps.ChatConfig',
     'data_management.apps.DataManagementConfig',
-    'llm_agents.apps.LlmAgeentsConfig',
+    'llm_agents.apps.LlmAgentsConfig',
     'accounts.apps.AccountsConfig',
 ]
 

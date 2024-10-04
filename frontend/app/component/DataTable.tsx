@@ -10,20 +10,21 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import { Button } from "@/components/ui/button"
-import { DataSetApiResponse } from './types';
+import { DataSetApiResponse, OriginalDataSet } from './types';
 
 
 interface DataTableProps {
     dataResponse: DataSetApiResponse;
+    originalData: OriginalDataSet;
 }
 
-const DataTable: React.FC<DataTableProps> = ({ dataResponse }) => {
+const DataTable: React.FC<DataTableProps> = ({ dataResponse, originalData }) => {
   const [showAllRows, setShowAllRows] = useState(false);
   
-  if (dataResponse.data.length === 0) return null;
+  if (originalData.data.length === 0) return null;
 
-  const headers = Object.keys(dataResponse.data[0]);
-  const displayedData = showAllRows ? dataResponse.data : dataResponse.data.slice(0, 10);
+  const headers = Object.keys(originalData.data[0]);
+  const displayedData = showAllRows ? originalData.data : originalData.data.slice(0, 10);
 
   return (
     <div className="p-4">
@@ -47,7 +48,7 @@ const DataTable: React.FC<DataTableProps> = ({ dataResponse }) => {
           </TableBody>
         </Table>
       </div>
-      {dataResponse.data.length > 10 && (
+      {originalData.data.length > 10 && (
         <div className="mt-4">
           <Button 
             onClick={() => setShowAllRows(!showAllRows)}

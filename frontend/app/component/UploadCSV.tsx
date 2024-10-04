@@ -5,10 +5,10 @@ import { useDropzone } from 'react-dropzone';
 import axios from 'axios';
 import { useMutation } from '@tanstack/react-query';
 import Papa from 'papaparse';
-import { DataSetApiResponse } from './types';
+import { DataSetApiResponse, OriginalDataSet } from './types';
 
 interface UploadCSVProps {
-  onDataReceived: (data: DataSetApiResponse) => void;
+  onDataReceived: (originalData: OriginalDataSet, apiData: DataSetApiResponse) => void;
   onUploadComplete: () => void;
 }
 
@@ -17,26 +17,34 @@ interface ParsedData {
   data: Record<string, string | number | boolean | null>[];
 }
 
+
 const UploadCSV: React.FC<UploadCSVProps> = ({ onDataReceived, onUploadComplete }) => {
   const uploadMutation = useMutation({
     mutationFn: async ({ file, data }: ParsedData) => {
       const formData = new FormData();
-      //formData.append('file', file);
       formData.append('name', file.name);
-      formData.append('user', '1'); // Assuming user ID 1 for this example
-      formData.append('data', JSON.stringify(data));
+      formData.append('description', 'test');
+      formData.append('url', 'https://raw.githubusercontent.com/uwdata/draco/master/data/cars.csv');
+      //formData.append('user', '1'); // Assuming user ID 1 for this example
+      //formData.append('data', JSON.stringify(data));
 
       const response = await axios.post<DataSetApiResponse>(
-        'http://localhost:8000/api/datasets/',
+        'http://localhost:8000/api/chat/chat-sessions/',
         formData,
         {
           headers: { 'Content-Type': 'multipart/form-data' },
         }
       );
-      return response.data;
+      return { originalData: data, apiData: response.data };
     },
-    onSuccess: (data) => {
-      onDataReceived(data);
+    onSuccess: ({ originalData, apiData }) => {
+      const originalDataSet: OriginalDataSet = {
+        data: originalData,
+        name: 'Uploaded CSV',
+        description: 'Data uploaded via CSV',
+        url: 'N/A'
+      };
+      onDataReceived(originalDataSet, apiData);
       onUploadComplete();
     },
     onError: (error) => {
@@ -48,21 +56,21 @@ const UploadCSV: React.FC<UploadCSVProps> = ({ onDataReceived, onUploadComplete 
     },
   });
 
-  const onDrop = useCallback((acceptedFiles: File[]) => {
+  const onDrop = useCallback(async (acceptedFiles: File[]) => {
     if (acceptedFiles.length > 0) {
       const file = acceptedFiles[0];
 
       Papa.parse(file, {
-        complete: (results) => {
-          const parsedData = results.data as Record<string, string | number>[];
-          uploadMutation.mutate({ file, data: parsedData });
+          complete: (results) => {
+            const parsedData = results.data as Record<string, string | number>[];
+            uploadMutation.mutate({ file, data: parsedData });
         },
         header: true,
         dynamicTyping: true,
-        error: (error) => {
+        error: (error: any) => {
           console.error('Error parsing CSV:', error);
-        },
-      });
+          },
+        });
     }
   }, [uploadMutation]);
 
