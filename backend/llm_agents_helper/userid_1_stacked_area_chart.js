@@ -1,4 +1,4 @@
-function createVehicleChart(data) {
+function createChart(data) {
   // Specify the chart’s dimensions.
   const width = 928;
   const height = 500;

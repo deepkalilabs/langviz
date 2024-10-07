@@ -1,5 +1,5 @@
-function createVehicleChart(data) {
-  // Specify the chart’s dimensions.
+function createChart(data) {
+  // Specify the chart's dimensions.
   const width = 928;
   const height = 600;
   const marginTop = 10;
@@ -58,6 +58,28 @@ function createVehicleChart(data) {
       .call(d3.axisLeft(y).ticks(null, "s"))
       .call(g => g.selectAll(".domain").remove());
 
-  // Return the chart with the color scale as a property (for the legend).
-  return Object.assign(svg.node(), {scales: {color}});
+  // Add a legend if needed
+  const legend = svg.append("g")
+    .attr("transform", `translate(${width - marginRight},${marginTop})`)
+    .attr("text-anchor", "end")
+    .attr("font-family", "sans-serif")
+    .attr("font-size", 10)
+    .selectAll("g")
+    .data(color.domain())
+    .join("g")
+      .attr("transform", (d, i) => `translate(0,${i * 20})`);
+
+  legend.append("rect")
+      .attr("x", -19)
+      .attr("width", 19)
+      .attr("height", 19)
+      .attr("fill", color);
+
+  legend.append("text")
+      .attr("x", -24)
+      .attr("y", 9.5)
+      .attr("dy", "0.35em")
+      .text(d => d);
+
+  return svg.node;
 }

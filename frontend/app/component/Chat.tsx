@@ -2,15 +2,14 @@
 
 import React, { useState, useCallback } from 'react';
 import axios from 'axios';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import DataTable from './DataTable';
 import { DataSetApiResponse, OriginalDataSet } from './types';
 import D3Visualization from './D3Visualization';
 import { useMutation } from '@tanstack/react-query';
+import ChartContainer from './ChartContainer'; // Assuming ChartContainer is defined in the same directory
 
 interface ChatProps {
-  sessionId: string;
+  //sessionId: string;
   originalData: OriginalDataSet;
   dataResponse: DataSetApiResponse;
 }
@@ -18,22 +17,21 @@ interface ChatProps {
 interface ChatMessage {
   role: 'user' | 'assistant';
   content: string;
+  chartData?: any;
 }
 
-interface ChatResponse {
-  message: string;
-}
+
 
 const Chat: React.FC<ChatProps> = ({ originalData, dataResponse }) => {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState('');
   const [showDataTable, setShowDataTable] = useState(false);
-  const [chartConfig, setChartConfig] = useState(null);
   const [csvData, setCsvData] = useState<any>(originalData);
+  const [chartData, setChartData] = useState<any>(null);
 
   const sendMessageMutation = useMutation({
     mutationFn: async (question: string) => {
-      const response = await axios.post<ChatResponse>(
+      const response = await axios.post<Response>(
         'http://0.0.0.0:8000/api/chat/chat-sessions/message/',
         {
           questions: [question],
@@ -43,9 +41,10 @@ const Chat: React.FC<ChatProps> = ({ originalData, dataResponse }) => {
       return response.data;
     },
     onSuccess: (data) => {
+      setChartData(data);
       setMessages(prev => [
         ...prev,
-        { role: 'assistant', content: data.message }
+        { role: 'assistant', content: '', chartData: data }
       ]);
     },
     onError: (error) => {
@@ -77,6 +76,11 @@ const Chat: React.FC<ChatProps> = ({ originalData, dataResponse }) => {
             <span className={`inline-block p-2 rounded-lg ${message.role === 'user' ? 'bg-blue-500 text-white' : 'bg-gray-200'}`}>
               {message.content}
             </span>
+            {message.chartData && (
+              <div className="mt-4">
+                <ChartContainer chartResponse={message.chartData} />
+              </div>
+            )}
           </div>
         ))}
       </div>

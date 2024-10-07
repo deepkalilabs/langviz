@@ -1,37 +1,57 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef } from 'react';
 import * as d3 from 'd3';
 
-const D3Visualization: React.FC<{
-  csvURL: string;
-  d3Code: string;
-  width: number;
-  height: number;
-}> = ({ csvURL, d3Code, width, height }) => {
-  const containerRef = useRef<HTMLDivElement>(null);
+interface D3VisualizationProps {
+  type: string;
+  data: { [key: string]: any[] };
+  jsCode: string;
+  pdCode: string;
+}
+
+const D3Visualization: React.FC<D3VisualizationProps> = ({ type, data, jsCode, pdCode }) => {
+  const chartRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (!csvURL || !d3Code || !containerRef.current) return;
+    if (chartRef.current && data) {
+      // Clear any existing content
+      chartRef.current.innerHTML = '';
 
-    //Clear the container
-    containerRef.current.innerHTML = '';
+      try {
+        // Create a function from the jsCode
+        const chartFunction = new Function('d3', 'data', `
+          ${jsCode}
+          return createChart(data);
+        `);
 
-    //Create the sandbox function to safely execute the D3 code
-    const chartFunction = new Function('d3', 'dataUri', 'element', 'width', 'height', `return ${d3Code}`);
+        // Prepare the data generically
+        const chartData = Object.keys(data).reduce((acc, key) => {
+          return acc.concat(data[key].map((value: any, index: number) => ({
+            [key]: value,
+            index: index
+          })));
+        }, [] as any[]);
 
-    try {
-      // Execute the D3 code in the sandbox
-      const chart = chartFunction(d3, csvURL, containerRef.current, width, height);
-      chart(d3, csvURL, containerRef.current, width, height);
-    } catch (error) {
-      console.error('Error executing D3 code:', error);
-      const errorMessage = document.createElement('div');
-      errorMessage.textContent = 'Error rendering visualization';
-      containerRef.current.appendChild(errorMessage);
-    
+        // Call the function with d3 and the prepared data
+        const svgNode = chartFunction(d3, chartData);
+        console.log('svgNode:', svgNode);
+
+        // Append the returned SVG node to the chart container
+        if (svgNode && chartRef.current) {
+          chartRef.current.appendChild(svgNode);
+        } else {
+          throw new Error('Failed to create chart');
+        }
+
+      } catch (error) {
+        console.error('Error rendering chart:', error);
+        if (chartRef.current) {
+          chartRef.current.innerHTML = `<p>Error rendering chart: ${error.message}</p>`;
+        }
+      }
     }
-  }, [csvURL, d3Code, width, height]);
+  }, [data, jsCode]);
 
-  return <div ref={containerRef}></div>;
+  return <div ref={chartRef} className="w-full h-full"></div>;
 };
 
 export default D3Visualization;

@@ -79,5 +79,5 @@ function createChart(data) {
       .attr("r", 3)
       .attr("fill", "currentColor");
 
-  return Object.assign(svg.node(), {scales: {x, y}});
+  return svg.node;
 }
