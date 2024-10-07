@@ -44,13 +44,24 @@ class PandasTransformationCode(dspy.Signature):
 class DatasetVisualizationsCode(dspy.Signature):
     """
         Given the schema of a dataset and sample visualization code, update the visualization code with the schema of the dataset.
-        Return the updated visualization code wrapped in a javascript function that can be embedded in a script.
-        Stick to the template of the js_template -- follow the function name and return type.
+        This code will be used as a template string in a React component.
+        Please clean and format the following D3 code so it can be used as a template string in a React component. Follow these guidelines:
+
+        1. Wrap the entire code in a function that takes 'data' as its only parameter.
+        2. Ensure the function returns the SVG node (typically svg.node()).
+        3. Escape all backticks (`) within the code by preceding them with a backslash (\`).
+        4. Escape all dollar signs ($) used in template literals within the code by preceding them with a backslash (\$).
+        5. Maintain proper indentation for readability.
+        6. Remove any 'use strict' statements or other unnecessary declarations.
+        7. Ensure all variables are properly declared (const, let, var).
+        8. If the code uses any external functions or variables not defined within the provided code, assume they are available in the scope and leave them as is.
+        9. Do not modify the core functionality of the D3 code.
+        10. Wrap the final result in backticks (`), prefixed with 'const jsCode = '.
     """
     schema = dspy.InputField(desc="The schema of the dataset")
     js_template = dspy.InputField(desc="Javascript template for the visualization")
-    visualization_code = dspy.InputField(desc="Sample visualization code")
     final_visualization_code = dspy.OutputField(desc="Updated visualization code with the schema of the dataset.")
+    #TODO: Use dspy hints to format the code
     
 class DatasetVisualizations(dspy.Module):
     def __init__(self, dataset, questions: list) -> None:
@@ -117,7 +128,7 @@ class DatasetVisualizations(dspy.Module):
             
 
 if __name__ == "__main__":
-    lm = dspy.LM('openai/gpt-4o-mini', api_key=API_KEY)
+    lm = dspy.LM('openai/gpt-4 ', api_key=API_KEY)
     dspy.settings.configure(lm=lm)
     csv_file_uri = "https://raw.githubusercontent.com/uwdata/draco/master/data/cars.csv"
     questions = [

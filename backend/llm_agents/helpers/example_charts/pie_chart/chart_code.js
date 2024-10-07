@@ -1,4 +1,4 @@
-chart = {
+function createChart(data) {
     // Specify the chart’s dimensions.
     const width = 928;
     const height = Math.min(width, 500);

@@ -1,4 +1,4 @@
-chart = {
+function createChart(data) {
 
   // Specify the chart’s dimensions.
   const width = 928;
@@ -83,5 +83,5 @@ chart = {
       .attr("fill", d => color(d.species))
       .attr("d", d => shape(d.species));
 
-  return Object.assign(svg.node(), {scales: {color, shape}});
+  return svg.node();
 }

@@ -1,4 +1,4 @@
-chart = {
+function createChart(data) {
   // Specify the chart’s dimensions.
   const width = 928;
   const height = 600;
@@ -70,5 +70,5 @@ chart = {
       .call(g => g.selectAll(".domain").remove());
 
   // Return the chart with the color scale as a property (for the legend).
-  return Object.assign(svg.node(), {scales: {color}});
+  return svg.node();
 }

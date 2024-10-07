@@ -1,5 +1,4 @@
-chart = {
-
+function createChart(data) {
   // Declare the chart dimensions and margins.
   const width = 928;
   const height = 600;
