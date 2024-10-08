@@ -1,72 +1,111 @@
 'use client'
 
-import React, { useState } from 'react';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
+import React, { useState, useCallback } from 'react';
+import axios from 'axios';
 import DataTable from './DataTable';
+import { DataSetApiResponse, OriginalDataSet } from './types';
+import D3Visualization from './D3Visualization';
+import { useMutation } from '@tanstack/react-query';
+import ChartContainer from './ChartContainer'; // Assuming ChartContainer is defined in the same directory
 
 interface ChatProps {
-  csvData: Record<string, string | number>[];
+  //sessionId: string;
+  originalData: OriginalDataSet;
+  dataResponse: DataSetApiResponse;
 }
 
-const Chat: React.FC<ChatProps> = ({ csvData }) => {
-  const [messages, setMessages] = useState<{ role: 'user' | 'assistant', content: string }[]>([]);
+interface ChatMessage {
+  role: 'user' | 'assistant';
+  content: string;
+  chartData?: any;
+}
+
+
+
+const Chat: React.FC<ChatProps> = ({ originalData, dataResponse }) => {
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState('');
   const [showDataTable, setShowDataTable] = useState(false);
+  const [csvData, setCsvData] = useState<any>(originalData);
+  const [chartData, setChartData] = useState<any>(null);
 
-  const handleSendMessage = () => {
+  const sendMessageMutation = useMutation({
+    mutationFn: async (question: string) => {
+      const response = await axios.post<Response>(
+        'http://0.0.0.0:8000/api/chat/chat-sessions/message/',
+        {
+          questions: [question],
+          session_id: dataResponse.session_id
+        }
+      );
+      return response.data;
+    },
+    onSuccess: (data) => {
+      setChartData(data);
+      setMessages(prev => [
+        ...prev,
+        { role: 'assistant', content: '', chartData: data }
+      ]);
+    },
+    onError: (error) => {
+      console.error('Error sending message:', error);
+      setMessages(prev => [
+        ...prev,
+        { role: 'assistant', content: 'Sorry, there was an error processing your request.' }
+      ]);
+    }
+  });
+
+  const handleSendMessage = useCallback(() => {
     if (input.trim()) {
-      setMessages([...messages, { role: 'user', content: input }]);
-      // Here you would typically send the message to a backend for processing
-      // For now, we'll just add a mock response
-      setTimeout(() => {
-        setMessages(prev => [...prev, { 
-          role: 'assistant', 
-          content: `I've analyzed your CSV data with ${csvData.length} rows. What would you like to know about it?` 
-        }]);
-      }, 1000);
+      setMessages(prev => [...prev, { role: 'user', content: input }]);
+      sendMessageMutation.mutate(input);
       setInput('');
     }
-  };
+  }, [input, sendMessageMutation]);
+
+  if (!csvData) {
+    return <div>Loading chart data and configuration...</div>;
+  }
 
   return (
     <div className="flex flex-col h-full">
-      <div className="flex-1 overflow-y-auto p-4 space-y-4">
+      <div className="flex-grow overflow-y-auto p-4">
         {messages.map((message, index) => (
-          <div key={index} className={`flex items-start ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-            {message.role === 'assistant' && (
-              <div className="w-8 h-8 rounded-full bg-blue-500 flex-shrink-0 mr-2"></div>
-            )}
-            <div className={`max-w-[70%] p-3 rounded-lg ${
-              message.role === 'user' ? 'bg-blue-500 text-white' : 'bg-gray-200 text-gray-800'
-            }`}>
+          <div key={index} className={`mb-4 ${message.role === 'user' ? 'text-right' : 'text-left'}`}>
+            <span className={`inline-block p-2 rounded-lg ${message.role === 'user' ? 'bg-blue-500 text-white' : 'bg-gray-200'}`}>
               {message.content}
-            </div>
-            {message.role === 'user' && (
-              <div className="w-8 h-8 rounded-full bg-gray-400 flex-shrink-0 ml-2"></div>
+            </span>
+            {message.chartData && (
+              <div className="mt-4">
+                <ChartContainer chartResponse={message.chartData} />
+              </div>
             )}
           </div>
         ))}
       </div>
       {showDataTable && (
         <div className="p-4 border-t border-b">
-          <DataTable data={csvData} />
+          <DataTable dataResponse={dataResponse} originalData={originalData} />
         </div>
       )}
       <div className="p-4 border-t">
-        <div className="flex space-x-2 mb-2">
-          <Button onClick={() => setShowDataTable(!showDataTable)}>
-            {showDataTable ? 'Hide Data' : 'Show Data'}
-          </Button>
-        </div>
-        <div className="flex space-x-2">
-          <Input
+        <div className="flex">
+          <input
+            type="text"
             value={input}
             onChange={(e) => setInput(e.target.value)}
-            placeholder="Ask about your CSV data..."
             onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
+            className="flex-grow mr-2 p-2 border rounded"
+            placeholder="Type your message..."
           />
-          <Button onClick={handleSendMessage}>Send</Button>
+          <button
+            onClick={handleSendMessage}
+            className="px-4 py-2 bg-blue-500 text-white rounded"
+            disabled={sendMessageMutation.isPending}
+          >
+            Send
+          </button>
         </div>
       </div>
     </div>

@@ -1,6 +1,10 @@
 import type { Metadata } from "next";
 import localFont from "next/font/local";
 import "./globals.css";
+import ClientProvider from "./ClientProvider";
+import Script from 'next/script';
+import * as d3 from 'd3';
+
 
 const geistSans = localFont({
   src: "./fonts/GeistVF.woff",
@@ -25,11 +29,19 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
-      >
-        {children}
-      </body>
+      <ClientProvider>
+        <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
+          {children}
+        </body>
+      </ClientProvider>
+      <Script src="https://d3js.org/d3.v7.min.js" strategy="lazyOnload" />
+      <Script id="make-d3-global">
+        {`
+          if (typeof window.d3 === 'undefined') {
+            window.d3 = d3;
+          }
+        `}
+      </Script>
     </html>
   );
 }
