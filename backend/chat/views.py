@@ -34,7 +34,7 @@ def create_dataset_helper(request):
     try:
         enrich_schema = DatasetEnrich(uri).forward()
         
-        dataset = DatasetModel.objects.create(name=name, uri=uri, description=description, enriched_columns_properties=enrich_schema['column_properties'], enriched_dataset_schema=enrich_schema['dataset_schema'])
+        dataset = DatasetModel.objects.create(name=name, uri=uri, description=description, enriched_columns_properties=enrich_schema['enriched_column_properties'], enriched_dataset_schema=enrich_schema['enriched_dataset_schema'])
         
         return dataset
     except Exception as e:
@@ -76,7 +76,7 @@ class ChatSessionMessage(APIView):
     
     def post(self, request, format=None):
         questions = request.data.get('questions', [])
-        dataset = DatasetModel.objects.last()
+        dataset = DatasetModel.objects.first()
         print("dataset", dataset)
         pprint(dataset.enriched_columns_properties)
         pprint(dataset.enriched_dataset_schema)

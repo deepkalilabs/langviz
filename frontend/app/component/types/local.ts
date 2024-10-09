@@ -2,7 +2,7 @@ interface OriginalDataSet {
     data: Record<string, string | number | boolean | null>[];
     name: string;
     description: string;
-    url: string;
+    uri: string;
   }
   
 export type { OriginalDataSet };

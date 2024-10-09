@@ -25,6 +25,7 @@
     "react-dom": "^18",
     "react-dropzone": "^14.2.3",
     "react-papaparse": "^4.4.0",
+    "react-use-websocket": "^3.0.0",
     "tailwind-merge": "^2.5.2",
     "tailwindcss-animate": "^1.0.7"
   },

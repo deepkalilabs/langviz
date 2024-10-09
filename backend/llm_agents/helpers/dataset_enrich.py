@@ -1,24 +1,33 @@
+import sys
+import os
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
 import json
 import warnings
 import pandas as pd
 from pprint import pprint
-from . import utils 
+from llm_agents.helpers import utils 
 # import utils
 import dspy
 import os
-
+from asgiref.sync import sync_to_async
+from chat.models import Dataset as DatasetModel
 API_KEY = os.environ.get('OPENAI_API_KEY')
 print("api_key", API_KEY)
 lm = dspy.LM('openai/gpt-4o-mini', api_key=API_KEY)
 dspy.settings.configure(lm=lm)
 
 class DatasetHelper():
-    def __init__(self, csv_file_uri, enriched_columns_properties=None, enriched_dataset_schema=None) -> None:
+    # TODO: Move this to the models file or a helper folder for models. 
+    def __init__(self, csv_file_uri, enriched_columns_properties=None, enriched_dataset_schema=None, save_to_db=False) -> None:
         self.summary = None
         self.df = utils.read_dataframe(csv_file_uri)
         self.file_name = csv_file_uri.split("/")[-1]
         self._column_properties = enriched_columns_properties
         self._dataset_schema = enriched_dataset_schema
+        
+        if save_to_db:
+            self.dataset_model = DatasetModel.objects.create(name=self.file_name, uri=csv_file_uri, description="new dataset", enriched_columns_properties=self._column_properties, enriched_dataset_schema=self._dataset_schema)
 
     def check_type(self, dtype: str, value):
         """Cast value to right type to ensure it is JSON serializable"""
@@ -30,7 +39,7 @@ class DatasetHelper():
             return value
         
     @property
-    def column_properties(self):
+    def enriched_column_properties(self):
         """
             Detailed properties of each column in the dataset.
         """
@@ -100,12 +109,12 @@ class DatasetHelper():
         return self.properties_list
     
     @property
-    def dataset_schema(self):
+    def enriched_dataset_schema(self):
         """
             High level schema of the dataset, with description and semantic_type for each column.
         """
         if self._dataset_schema is None:
-            self._dataset_schema = self._update_dataset_schema(self.column_properties)
+            self._dataset_schema = self._update_dataset_schema(self.enriched_column_properties)
             
         return self._dataset_schema
     
@@ -118,12 +127,12 @@ class DatasetHelper():
         return schema_list
 
     
-    @dataset_schema.setter
-    def dataset_schema(self, new_schema):
+    @enriched_dataset_schema.setter
+    def enriched_dataset_schema(self, new_schema):
         self._dataset_schema = new_schema
         
-    @column_properties.setter
-    def column_properties(self, new_properties_list):
+    @enriched_column_properties.setter
+    def enriched_column_properties(self, new_properties_list):
         print("Setting new properties list")
         pprint(new_properties_list)
         self._column_properties = new_properties_list
@@ -144,7 +153,6 @@ class EnrichDatasetDescription(dspy.Signature):
     schema = dspy.InputField(desc="The schema of the dataset")
     dataset_description = dspy.OutputField(desc="One line description of the dataset")
     
-
 class DatasetEnrich(dspy.Module):
     def __init__(self, url: str) -> None:
         self.dataset = DatasetHelper(url)
@@ -156,7 +164,7 @@ class DatasetEnrich(dspy.Module):
             Enriches each field in the csv with description & semantic_type.
         """
         column_properties_enriched = []
-        for column_dict in self.dataset.column_properties:
+        for column_dict in self.dataset.enriched_column_properties:
             try:
                 pred = self.enriched_field_json(field_json=column_dict)
                 enriched_fields = json.loads(pred.enriched_field_json)
@@ -168,7 +176,7 @@ class DatasetEnrich(dspy.Module):
         
             column_properties_enriched.append(column_dict)
                 
-        self.dataset.column_properties = column_properties_enriched
+        self.dataset.enriched_column_properties = column_properties_enriched
         
         # pprint(self.dataset.column_properties)
         
@@ -176,9 +184,9 @@ class DatasetEnrich(dspy.Module):
         """
             Enriches the dataset with description.
         """
-        pred = self.dataset_description(schema=self.dataset.dataset_schema)
-        self.dataset.dataset_schema.append({'dataset_description': pred.dataset_description})
-        self.dataset.column_properties.append({'dataset_description': pred.dataset_description})
+        pred = self.dataset_description(schema=self.dataset.enriched_dataset_schema)
+        self.dataset.enriched_dataset_schema.append({'dataset_description': pred.dataset_description})
+        self.dataset.enriched_column_properties.append({'dataset_description': pred.dataset_description})
     
         
     def forward(self) -> dict:
@@ -186,12 +194,14 @@ class DatasetEnrich(dspy.Module):
         self.enrich_dataset_description()
         
         # Return the enriched dataset information
+        print("forwarded properties: ", self.dataset.enriched_column_properties)
         return {
-            'column_properties': self.dataset.column_properties,
-            'dataset_schema': self.dataset.dataset_schema
+            'enriched_column_properties': self.dataset.enriched_column_properties,
+            'enriched_dataset_schema': self.dataset.enriched_dataset_schema
         }
         
 if __name__ == "__main__":
     csv_file_uri = "https://raw.githubusercontent.com/uwdata/draco/master/data/cars.csv"
-    enrich = DatasetEnrich(csv_file_uri)
-    pprint(enrich.forward())
+    enrich = DatasetEnrich(csv_file_uri).forward()
+    pprint(enrich)
+    

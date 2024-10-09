@@ -1,7 +1,14 @@
 #! /usr/bin/env python3
 from django.db import models
+from django.db.models import Manager
 from accounts.models import User
 import uuid
+
+class DatasetManager(Manager):
+    def get(self, *args, **kwargs):
+        obj = super().get(*args, **kwargs)
+        # You can add custom logic here if needed
+        return obj
 
 class Dataset(models.Model):
     name = models.CharField(max_length=200, null=True, blank=True)
@@ -12,8 +19,14 @@ class Dataset(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     
+    objects = DatasetManager()
+    
     def __str__(self):
         return self.name
+    
+    def get_object(self):
+        return self
+
 
 class ChatSession(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE, null=True, blank=True)
@@ -23,7 +36,7 @@ class ChatSession(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
 
     def __str__(self):
-        return self.session_id
+        return str(self.session_id)
 
 class Message(models.Model):
     session = models.ForeignKey(ChatSession, on_delete=models.CASCADE, null=True, blank=True)

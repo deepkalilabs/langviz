@@ -14,7 +14,8 @@ interface RightBarSheetProps {
 
 const RightBarSheet: React.FC<RightBarSheetProps> = ({ dataResponse, originalData, isOpen, onOpenChange }) => {
   const [showChat, setShowChat] = useState(false);
-  
+  console.log("originalData", originalData)
+  console.log("dataResponse", dataResponse)
   // Reset showChat to false when csvData changes
   useEffect(() => {
     setShowChat(false);

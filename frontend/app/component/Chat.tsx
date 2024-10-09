@@ -1,12 +1,13 @@
 'use client'
 
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import axios from 'axios';
 import DataTable from './DataTable';
 import { DataSetApiResponse, OriginalDataSet } from './types';
 import D3Visualization from './D3Visualization';
 import { useMutation } from '@tanstack/react-query';
 import ChartContainer from './ChartContainer'; // Assuming ChartContainer is defined in the same directory
+import useWebSocket from 'react-use-websocket';
 
 interface ChatProps {
   //sessionId: string;
@@ -14,38 +15,74 @@ interface ChatProps {
   dataResponse: DataSetApiResponse;
 }
 
+// TODO: Decouple user & server messages
 interface ChatMessage {
   role: 'user' | 'assistant';
   content: string;
+  type?: string;
   chartData?: any;
 }
 
 
+const URL = 'ws://0.0.0.0:8000/ws/chat/';
 
 const Chat: React.FC<ChatProps> = ({ originalData, dataResponse }) => {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState('');
   const [showDataTable, setShowDataTable] = useState(false);
   const [csvData, setCsvData] = useState<any>(originalData);
-  const [chartData, setChartData] = useState<any>(null);
+  const [socketURL, setSocketURL] = useState(URL);
+  const { sendMessage, lastMessage, readyState } = useWebSocket(socketURL); 
+  // const [chartData, setChartData] = useState<any>(null);
+
+  const setMessageHandler = (msg: ChatMessage) => {
+    // const validatedMsg: ChatMessage = {
+    //   role: msg.role || 'assistant',
+    //   content: msg.content || 'No content',
+    //   type: msg.type,
+    //   chartData: msg.chartData
+    // };
+    if (msg.content) {
+      setMessages(prev => [
+        ...prev,
+        msg
+      ]);
+    }
+  }
+  
+  useEffect(() => {
+    if (lastMessage !== null) {
+      try {
+        const message = JSON.parse(lastMessage.data);
+        setMessageHandler(message);
+      } catch (error) {
+        console.error('Error parsing WebSocket message:', error);
+      }
+    }
+  }, [lastMessage]);
 
   const sendMessageMutation = useMutation({
     mutationFn: async (question: string) => {
-      const response = await axios.post<Response>(
-        'http://0.0.0.0:8000/api/chat/chat-sessions/message/',
-        {
+      console.log('sending message');
+      console.log({
+        questions: [question],
+        session_id: dataResponse.session_id
+      });
+
+      // TODO: Add chat history
+      const serverMsg = sendMessage(JSON.stringify({
+        type: "generate_visualizations",
+        data: {
           questions: [question],
           session_id: dataResponse.session_id
         }
-      );
-      return response.data;
+      }));
+
+      return serverMsg;
     },
-    onSuccess: (data) => {
-      setChartData(data);
-      setMessages(prev => [
-        ...prev,
-        { role: 'assistant', content: '', chartData: data }
-      ]);
+    onSuccess: (serverMsg: ChatMessage) => {
+      // setChartData(data);
+      setMessageHandler(serverMsg)
     },
     onError: (error) => {
       console.error('Error sending message:', error);
@@ -56,9 +93,10 @@ const Chat: React.FC<ChatProps> = ({ originalData, dataResponse }) => {
     }
   });
 
-  const handleSendMessage = useCallback(() => {
+  const handleUserSendMessage = useCallback(() => {
     if (input.trim()) {
-      setMessages(prev => [...prev, { role: 'user', content: input }]);
+      const userMsg: ChatMessage = { role: 'user', content: input, chartData: null }
+      setMessageHandler(userMsg);
       sendMessageMutation.mutate(input);
       setInput('');
     }
@@ -95,12 +133,12 @@ const Chat: React.FC<ChatProps> = ({ originalData, dataResponse }) => {
             type="text"
             value={input}
             onChange={(e) => setInput(e.target.value)}
-            onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
+            onKeyPress={(e) => e.key === 'Enter' && handleUserSendMessage()}
             className="flex-grow mr-2 p-2 border rounded"
             placeholder="Type your message..."
           />
           <button
-            onClick={handleSendMessage}
+            onClick={handleUserSendMessage}
             className="px-4 py-2 bg-blue-500 text-white rounded"
             disabled={sendMessageMutation.isPending}
           >

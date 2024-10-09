@@ -1,5 +1,9 @@
+import sys
+import os
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
 import dspy
-from . import utils
+from llm_agents.helpers import utils 
 # import utils
 import json
 import logging
@@ -14,6 +18,7 @@ from dataclasses import dataclass
 import time
 import asyncio 
 import concurrent.futures
+from asgiref.sync import sync_to_async
 
 API_KEY = os.environ.get('OPENAI_API_KEY')
 print("api_key", API_KEY)
@@ -86,7 +91,7 @@ class DatasetVisualizations(dspy.Module):
         self.question_viz_details = {}
         
     def visualization_recommender_helper(self, question: str):
-        visualizations = self.visualization_recommender(schema=self.dataset.dataset_schema, question=question)
+        visualizations = self.visualization_recommender(schema=self.dataset.enriched_dataset_schema, question=question)
         return visualizations
     
     def pandas_code_generator_helper(self, schema, visualization_type, columns_involved):
@@ -99,7 +104,8 @@ class DatasetVisualizations(dspy.Module):
 
     
     def execute_pandas_code(self, pandas_code):
-        local_namespace = {'pd': pd, 'df': self.dataset.df}
+        df = utils.read_dataframe(self.dataset.uri)
+        local_namespace = {'pd': pd, 'df': df}
         
         cleaned_code = self.clean_code(pandas_code)
         # Remove the triple backticks and 'python' from the string        
@@ -141,7 +147,7 @@ class DatasetVisualizations(dspy.Module):
             
             return {
                 'viz_name': viz_name,
-                'data': extracted_df,
+                'data': extracted_df.to_json(),
                 'js_code': js_code.final_visualization_code,
                 'pd_code': pd_code.pandas_code
             }
@@ -153,7 +159,7 @@ class DatasetVisualizations(dspy.Module):
         viz = self.visualization_recommender_helper(question)
         results = []
         
-        tasks = [self.generate_viz(self.dataset.dataset_schema, visualization) for visualization in viz.visualizations]
+        tasks = [self.generate_viz(self.dataset.enriched_dataset_schema, visualization) for visualization in viz.visualizations]
         
         results = await asyncio.gather(*tasks)
             
@@ -166,11 +172,7 @@ class DatasetVisualizations(dspy.Module):
             raise ValueError("More than one questions provided")
         
         results = asyncio.run(self.process_all_visualizations(self.questions[0]))
-        print(results)
-        # for result in all_results:
-        #     print("_________")
-        #     for r in result.result():
-        #         results.append(r.result())
+        # print(results)
         
         end_time = time.time()
         print(f"Time taken: {end_time - start_time:.2f} seconds") 
