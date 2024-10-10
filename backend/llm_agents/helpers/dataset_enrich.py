@@ -11,7 +11,7 @@ from llm_agents.helpers import utils
 import dspy
 import os
 from asgiref.sync import sync_to_async
-from chat.models import Dataset as DatasetModel
+# from chat.models import Dataset as DatasetModel
 API_KEY = os.environ.get('OPENAI_API_KEY')
 print("api_key", API_KEY)
 lm = dspy.LM('openai/gpt-4o-mini', api_key=API_KEY)
@@ -25,9 +25,10 @@ class DatasetHelper():
         self.file_name = csv_file_uri.split("/")[-1]
         self._column_properties = enriched_columns_properties
         self._dataset_schema = enriched_dataset_schema
+        self.uri = csv_file_uri
         
-        if save_to_db:
-            self.dataset_model = DatasetModel.objects.create(name=self.file_name, uri=csv_file_uri, description="new dataset", enriched_columns_properties=self._column_properties, enriched_dataset_schema=self._dataset_schema)
+        # if save_to_db:
+        #     self.dataset_model = DatasetModel.objects.create(name=self.file_name, uri=csv_file_uri, description="new dataset", enriched_columns_properties=self._column_properties, enriched_dataset_schema=self._dataset_schema)
 
     def check_type(self, dtype: str, value):
         """Cast value to right type to ensure it is JSON serializable"""

@@ -49,24 +49,6 @@ class ChatConsumer(AsyncWebsocketConsumer):
         
         self.dataset_viz_handler = DatasetVisualizations(self.enrich_dataset, initiate_viz.questions)
 
-    @sync_to_async
-    def generate_viz_types(self, questions):
-        if self.dataset_viz_handler is None:
-            raise ValueError("Dataset visualization handler not initialized")
-        
-        visualization_objects = self.dataset_viz_handler.visualization_recommender_helper(question=questions)
-        
-        self.viz_types = [viz.visualization_type for viz in visualization_objects.visualizations]
-
-        return self.viz_types
-    
-    @sync_to_async
-    def generate_viz(self):
-        if self.dataset_viz_handler is None:
-            raise ValueError("Dataset visualization handler not initialized")
-        
-        return self.dataset_viz_handler.forward()
-    
         
     async def connect(self):
         print("connected to server")
@@ -91,6 +73,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
         await self.initiate_viz_handler(initiate_viz)
         
         if message_type == 'generate_visualizations':
+            # Acknowledge the request
             if self.enrich_dataset == None:
                 raise ValueError("Dataset not created")
                         
@@ -101,27 +84,38 @@ class ChatConsumer(AsyncWebsocketConsumer):
                 'chartData': None
             }))
             
+            # Setup the visualization handler
             await self.initiate_viz_handler(initiate_viz)
             
-            viz_types = await self.generate_viz_types(initiate_viz.questions)
+            if self.dataset_viz_handler is None:
+                raise ValueError("Dataset visualization handler not initialized")
+        
+            
+            # Generate the visualization types
+            visualization_objects = self.dataset_viz_handler.visualization_recommender_helper(question=initiate_viz.questions)
+            
+            print("debugging visualization objects", visualization_objects.visualizations)
+
+            self.viz_types = [viz.visualization_type for viz in visualization_objects.visualizations]
             
             await self.send(text_data=json.dumps({
                 'role': 'assistant',
                 'type': 'viz_types',
-                'content': "Generated visualization types: " + ", ".join(viz_types),
+                'content': "Generated visualization types: " + ", ".join(self.viz_types),
                 'chartData': None
             }))
             
-            # TODO: Make the viz yield once they are ready iteratively
-            for viz in viz_types:
-                viz_code = await self.generate_viz()
-                print("debugging viz type", viz)
+            # Generate the visualization code
+            for viz in visualization_objects.visualizations:
+                viz_code = await self.dataset_viz_handler.generate_viz(self.enrich_dataset.enriched_dataset_schema, viz)
+                
+                print("debugging viz", viz)
                 print("debugging viz code", viz_code)
                 
                 text_data=json.dumps({
                     'role': 'assistant',
                     'type': 'viz_code',
-                    'content': viz,
+                    'content': viz.visualization_type,
                     'chartData': viz_code
                 })
                 

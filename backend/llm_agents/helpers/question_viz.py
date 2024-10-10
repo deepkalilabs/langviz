@@ -49,13 +49,16 @@ class VisualizationRecommender(dspy.Signature):
     
 class PandasTransformationCode(dspy.Signature):
     """
-        Given the schema of the dataset, a type of visualization, columns involved in the visualization, and a reference signature for the visualization, generate the pandas code to extract and tranform the data for the visualization. The signature is just for reference as it belongs to another dataset. 
+        Given the schema of the dataset, a type of visualization, columns involved in the visualization, a reference signature for the visualization, and the EXACT javascript code where this data will be used, generate the pandas code to extract and tranform the data for the visualization. Make sure the pandas code is compatible with the run_js_code and the pandas_code generates an iterable list.
+        
+        The signature is just for reference as it belongs to another dataset. 
     """
-    schema = dspy.InputField(desc="The schema of the dataset")
+    enriched_dataset_schema = dspy.InputField(desc="The enriched schema of the entire dataset")
     visualization_type = dspy.InputField(desc="Type of visualization to be generated")
     columns_involved = dspy.InputField(desc="Columns involved in the visualization to be generated")
     reference_signature = dspy.InputField(desc="Reference signature for the visualization from a different dataset for this visualization")
-    pandas_code = dspy.OutputField(desc="Python code using Pandas to extract and transform the data from this dataset. Return the extracted data as 'extract_df'.")
+    run_js_code = dspy.InputField(desc="Javascript code where this data will be used to run the visualization")
+    pandas_code = dspy.OutputField(desc="Python code using Pandas to extract and transform the data from this dataset. Return the extracted data as 'extract_df'. The data format should be compatible with the run_js_code.")
     
 class DatasetVisualizationsCode(dspy.Signature):
     """
@@ -73,8 +76,9 @@ class DatasetVisualizationsCode(dspy.Signature):
         8. If the code uses any external functions or variables not defined within the provided code, assume they are available in the scope and leave them as is.
         9. Do not modify the core functionality of the D3 code.
     """
-    schema = dspy.InputField(desc="The schema of the dataset")
-    visualization_code = dspy.InputField(desc="Sample visualization code")
+    enriched_dataset_schema = dspy.InputField(desc="The enriched schema of the entire dataset")
+    dataset_columns = dspy.InputField(desc="The columns of the dataset used for the visualization")
+    visualization_code = dspy.InputField(desc="Sample D3 code from a different dataset for this visualization")
     final_visualization_code = dspy.OutputField(desc="Updated visualization code with the schema of the dataset.")
     
 
@@ -91,13 +95,25 @@ class DatasetVisualizations(dspy.Module):
         self.question_viz_details = {}
         
     def visualization_recommender_helper(self, question: str):
-        visualizations = self.visualization_recommender(schema=self.dataset.enriched_dataset_schema, question=question)
-        return visualizations
+        try:
+            visualizations = self.visualization_recommender(schema=self.dataset.enriched_dataset_schema, question=question)
+            return visualizations
+        except Exception as e:
+            print("Skipping visualization recommendation because of error: ", e)
     
-    def pandas_code_generator_helper(self, schema, visualization_type, columns_involved):
-        d3_chart_signature = open(os.path.join(self.viz_dir, visualization_type, 'contract.py')).read()
-        pandas_code = self.pandas_code_generator(schema=schema, visualization_type=visualization_type, columns_involved=columns_involved, reference_signature=d3_chart_signature)
-        return pandas_code
+    def pandas_code_generator_helper(self, enriched_dataset_schema, visualization_type, run_js_code, columns_involved):
+        try:
+            d3_chart_signature = open(os.path.join(self.viz_dir, visualization_type, 'contract.py')).read()
+            pandas_code = self.pandas_code_generator(
+                enriched_dataset_schema=enriched_dataset_schema, 
+                visualization_type=visualization_type, 
+                run_js_code=run_js_code, 
+                columns_involved=columns_involved, 
+                reference_signature=d3_chart_signature
+            )
+            return pandas_code
+        except Exception as e:
+            print("Skipping pandas code generation because of error: ", e, visualization_type)
     
     def clean_code(self, code):
         return code.strip('`').replace('python', '').strip()
@@ -115,39 +131,44 @@ class DatasetVisualizations(dspy.Module):
         # Return the result (scatter_data in this case)
         return local_namespace.get('extract_df')
     
-    def visualization_code_generator_helper(self, schema, visualization_type):
-        d3_chart_viz_code = open(os.path.join(self.viz_dir, visualization_type, 'chart_code.js')).read()
-        updated_viz_code = self.visualization_code_generator(schema=schema, visualization_code=d3_chart_viz_code)
-        return updated_viz_code
-    
-    async def generate_viz(self, schema, visualization):
+    def visualization_code_generator_helper(self, enriched_dataset_schema, dataset_columns, visualization_type):
         try:
-            pd_code = await asyncio.get_event_loop().run_in_executor(
-                self.executor,
-                self.pandas_code_generator_helper,
-                schema, 
-                visualization.visualization_type, 
-                visualization.columns_involved
+            d3_chart_viz_code = open(os.path.join(self.viz_dir, visualization_type, 'chart_code.js')).read()
+            updated_viz_code = self.visualization_code_generator(
+                enriched_dataset_schema=enriched_dataset_schema, 
+                dataset_columns=dataset_columns, 
+                visualization_code=d3_chart_viz_code
             )
-            
-            extracted_df = await asyncio.get_event_loop().run_in_executor(
-                self.executor,
-                self.execute_pandas_code,
-                pd_code.pandas_code
-            )
-            
-            viz_name = visualization.visualization_type
-            
+            return updated_viz_code
+        except Exception as e:
+            print("Skipping viz code generation because of error: ", e, visualization_type)
+    
+    async def generate_viz(self, enriched_dataset_schema, visualization):
+        try:
             js_code = await asyncio.get_event_loop().run_in_executor(
                 self.executor,
                 self.visualization_code_generator_helper,
-                extracted_df.head(), 
-                viz_name
+                enriched_dataset_schema,
+                visualization.columns_involved, 
+                visualization.visualization_type
             )
+            
+            pd_code = await asyncio.get_event_loop().run_in_executor(
+                self.executor,
+                self.pandas_code_generator_helper,
+                enriched_dataset_schema, 
+                visualization.visualization_type,
+                js_code.final_visualization_code,
+                visualization.columns_involved
+            )
+            
+            extracted_df = self.execute_pandas_code(pd_code.pandas_code)
+            
+            viz_name = visualization.visualization_type
             
             return {
                 'viz_name': viz_name,
-                'data': extracted_df.to_json(),
+                'data': extracted_df,
                 'js_code': js_code.final_visualization_code,
                 'pd_code': pd_code.pandas_code
             }
@@ -157,22 +178,23 @@ class DatasetVisualizations(dspy.Module):
     
     async def process_all_visualizations(self, question):
         viz = self.visualization_recommender_helper(question)
-        results = []
         
-        tasks = [self.generate_viz(self.dataset.enriched_dataset_schema, visualization) for visualization in viz.visualizations]
-        
-        results = await asyncio.gather(*tasks)
-            
-        return [result for result in results if result is not None]
+        for visualization in viz.visualizations:
+            result = await self.generate_viz(self.dataset.enriched_dataset_schema, visualization)
+            print(result)
+            yield result
             
     def forward(self):
-        results = []
         start_time = time.time()
         if len(self.questions) > 1:
             raise ValueError("More than one questions provided")
         
-        results = asyncio.run(self.process_all_visualizations(self.questions[0]))
-        # print(results)
+        results = []
+        
+        # asyncio.run(self.process_all_visualizations(self.questions[0]))
+        
+        for result in self.process_all_visualizations(self.questions[0]):
+            results.append(result)
         
         end_time = time.time()
         print(f"Time taken: {end_time - start_time:.2f} seconds") 
@@ -193,7 +215,7 @@ if __name__ == "__main__":
     
     enrich_schema = dataset_enrich.DatasetEnrich(csv_file_uri).forward()
     
-    enriched_dataset = dataset_enrich.DatasetHelper(csv_file_uri, enrich_schema['column_properties'], enrich_schema['dataset_schema'])
+    enriched_dataset = dataset_enrich.DatasetHelper(csv_file_uri, enrich_schema['enriched_column_properties'], enrich_schema['enriched_dataset_schema'])
     
     enrich = DatasetVisualizations(enriched_dataset, questions)
     enrich.forward()

@@ -3,7 +3,6 @@ import localFont from "next/font/local";
 import "./globals.css";
 import ClientProvider from "./ClientProvider";
 import Script from 'next/script';
-import * as d3 from 'd3';
 
 
 const geistSans = localFont({

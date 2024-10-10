@@ -4,7 +4,6 @@ import React, { useState, useCallback, useEffect } from 'react';
 import axios from 'axios';
 import DataTable from './DataTable';
 import { DataSetApiResponse, OriginalDataSet } from './types';
-import D3Visualization from './D3Visualization';
 import { useMutation } from '@tanstack/react-query';
 import ChartContainer from './ChartContainer'; // Assuming ChartContainer is defined in the same directory
 import useWebSocket from 'react-use-websocket';
@@ -15,12 +14,19 @@ interface ChatProps {
   dataResponse: DataSetApiResponse;
 }
 
+interface ChartData {
+  viz_name: string;
+  data: object;
+  js_code: string;
+  pd_code: string;
+}
+
 // TODO: Decouple user & server messages
 interface ChatMessage {
   role: 'user' | 'assistant';
   content: string;
   type?: string;
-  chartData?: any;
+  chartData?: ChartData;
 }
 
 
@@ -33,15 +39,8 @@ const Chat: React.FC<ChatProps> = ({ originalData, dataResponse }) => {
   const [csvData, setCsvData] = useState<any>(originalData);
   const [socketURL, setSocketURL] = useState(URL);
   const { sendMessage, lastMessage, readyState } = useWebSocket(socketURL); 
-  // const [chartData, setChartData] = useState<any>(null);
 
   const setMessageHandler = (msg: ChatMessage) => {
-    // const validatedMsg: ChatMessage = {
-    //   role: msg.role || 'assistant',
-    //   content: msg.content || 'No content',
-    //   type: msg.type,
-    //   chartData: msg.chartData
-    // };
     if (msg.content) {
       setMessages(prev => [
         ...prev,
@@ -63,11 +62,6 @@ const Chat: React.FC<ChatProps> = ({ originalData, dataResponse }) => {
 
   const sendMessageMutation = useMutation({
     mutationFn: async (question: string) => {
-      console.log('sending message');
-      console.log({
-        questions: [question],
-        session_id: dataResponse.session_id
-      });
 
       // TODO: Add chat history
       const serverMsg = sendMessage(JSON.stringify({
@@ -86,15 +80,13 @@ const Chat: React.FC<ChatProps> = ({ originalData, dataResponse }) => {
     },
     onError: (error) => {
       console.error('Error sending message:', error);
-      setMessages(prev => [
-        ...prev,
-        { role: 'assistant', content: 'Sorry, there was an error processing your request.' }
-      ]);
+      setMessageHandler({ role: 'assistant', content: 'Sorry, there was an error processing your request.' })
     }
   });
 
   const handleUserSendMessage = useCallback(() => {
     if (input.trim()) {
+      console.log("input", input)
       const userMsg: ChatMessage = { role: 'user', content: input, chartData: null }
       setMessageHandler(userMsg);
       sendMessageMutation.mutate(input);
@@ -110,13 +102,15 @@ const Chat: React.FC<ChatProps> = ({ originalData, dataResponse }) => {
     <div className="flex flex-col h-full">
       <div className="flex-grow overflow-y-auto p-4">
         {messages.map((message, index) => (
+          console.log("message", message.chartData),
           <div key={index} className={`mb-4 ${message.role === 'user' ? 'text-right' : 'text-left'}`}>
             <span className={`inline-block p-2 rounded-lg ${message.role === 'user' ? 'bg-blue-500 text-white' : 'bg-gray-200'}`}>
               {message.content}
             </span>
             {message.chartData && (
+              // TODO: Better type handling for chartData
               <div className="mt-4">
-                <ChartContainer chartResponse={message.chartData} />
+                <ChartContainer viz_name={message.chartData.viz_name} data={message.chartData.data} js_code={message.chartData.js_code} pd_code={message.chartData.pd_code} />
               </div>
             )}
           </div>
