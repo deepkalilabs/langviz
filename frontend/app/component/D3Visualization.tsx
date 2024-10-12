@@ -4,27 +4,23 @@ import * as d3 from 'd3';
 interface D3VisualizationProps {
   viz_name: string;
   jsCode: string;
-  data: object;
+  data: any;
 }
 
 function transformDataForD3(rawData: any) {
-  const transformedData = [];
-  console.log("rawData", rawData)
+  const transformedData: any[] = [];
   const keys = Object.keys(rawData);
   const dataLength = rawData[keys[0]].length;
-  
-  console.log("dataLength", dataLength)
 
-  // for (let i = 0; i < dataLength; i++) {
-  //   const dataPoint = {};
-  //   keys.forEach(key => {
-  //     dataPoint[key] = rawData[key][i];
-  //   });
-  //   transformedData.push(dataPoint);
-  // }
-
-  // console.log("transformedData", transformedData)
-  console.log("rawData", rawData)
+  /*
+  for (let i = 0; i < dataLength; i++) {
+    const dataPoint = {};
+    keys.forEach(key => {
+      dataPoint[key] = rawData[key][i];
+    });
+    transformedData.push(dataPoint);
+  }
+    */
 
   return rawData;
 }
@@ -32,27 +28,39 @@ function transformDataForD3(rawData: any) {
 
 const D3Visualization: React.FC<D3VisualizationProps> = ({ viz_name, jsCode, data }) => {
   const chartRef = useRef<HTMLDivElement>(null);
-
+  let processedData = []
   const [error, setError] = useState<string | null>(null);
 
+  /*
   useEffect(() => {
     if (chartRef.current) {
       try {
         // Clear existing content
         chartRef.current.innerHTML = '';
-        let processedData;
+        console.log("data", data)
+        console.log("typeof data", typeof data)
+        processedData = transformDataForD3(data)
         // Process the data
-        if (typeof data === 'object' && data !== null) {
-          debugger;
-          processedData = transformDataForD3(data)
+        if (typeof data === 'function') {
+          processedData = data;
+        } else if (typeof data === 'object' && data !== null) {
+          processedData = data;
         } else {
           throw new Error('Invalid data format');
         }
+
+        // Validate processed data
+        // if (!Array.isArray(processedData) || processedData.length === 0) {
+        //   throw new Error('Data must be a non-empty array');
+        // }
 
         // Safely evaluate the D3 code
         const createChart = new Function('d3', 'data', `
           return (${jsCode})(data);
         `);
+
+        console.log("createChart", createChart.toString())
+        console.log("processed data", JSON.stringify(processedData))
 
         // Execute the code
         const chart = createChart(d3, processedData);
@@ -61,6 +69,8 @@ const D3Visualization: React.FC<D3VisualizationProps> = ({ viz_name, jsCode, dat
         }
         chartRef.current.appendChild(chart);
 
+        console.log("chart ref", chartRef.current)
+
         setError(null);
       } catch (error) {
         console.error('Error executing D3 code:', error);
@@ -68,6 +78,39 @@ const D3Visualization: React.FC<D3VisualizationProps> = ({ viz_name, jsCode, dat
       }
     }
   }, [jsCode, data]);
+  */
+
+  useEffect(() => {
+    if (chartRef.current) {
+      try {
+        // Clear existing content
+        chartRef.current.innerHTML = '';
+        console.log("data", data)
+        console.log("typeof data", typeof data)
+        //Grab json data from public/svg folder
+        const svgData = require(`../../public/svg/cars.json`)
+        console.log("svgData", svgData)
+
+        //Take svg data value into a variable
+        const svg = svgData.svg
+        console.log("svg", svg)
+
+        //Change the svg string into an actual svg element
+        const svgElement = new DOMParser().parseFromString(svg, 'image/svg+xml').documentElement;
+        console.log("svgElement", svgElement)
+
+        //Append the svg element to the div
+        chartRef.current.appendChild(svgElement)
+
+     
+      } catch (error) {
+        console.error('Error transforming data:', error);
+        setError(error instanceof Error ? error.message : String(error));
+      }
+    }
+
+    
+  }, [jsCode, data])
 
   return (
     <div className="border border-gray-300 p-4 my-4">
@@ -80,7 +123,7 @@ const D3Visualization: React.FC<D3VisualizationProps> = ({ viz_name, jsCode, dat
       <details className="mt-4">
         <summary className="cursor-pointer">Debug Info</summary>
         <pre className="text-xs mt-2 p-2 bg-gray-100 rounded overflow-auto">
-          {jsCode && JSON.stringify({
+          {JSON.stringify({
             viz_name,
             dataType: typeof data,
             dataLength: Array.isArray(data) ? data.length : 'N/A',
