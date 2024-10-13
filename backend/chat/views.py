@@ -32,9 +32,11 @@ def create_dataset_helper(request):
         raise ValueError('uri is required')
     
     try:
-        enrich_schema = DatasetEnrich(uri).forward()
+        # enrich_schema = DatasetEnrich(uri).forward()
         
-        dataset = DatasetModel.objects.create(name=name, uri=uri, description=description, enriched_columns_properties=enrich_schema['enriched_column_properties'], enriched_dataset_schema=enrich_schema['enriched_dataset_schema'])
+        # dataset = DatasetModel.objects.create(name=name, uri=uri, description=description, enriched_columns_properties=enrich_schema['enriched_column_properties'], enriched_dataset_schema=enrich_schema['enriched_dataset_schema'])
+        
+        dataset = DatasetModel.objects.last()
         
         return dataset
     except Exception as e:

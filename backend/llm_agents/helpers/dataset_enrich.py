@@ -10,18 +10,24 @@ from llm_agents.helpers import utils
 # import utils
 import dspy
 import os
+from pydantic import BaseModel, Field
+from dataclasses import dataclass
 from asgiref.sync import sync_to_async
 # from chat.models import Dataset as DatasetModel
 API_KEY = os.environ.get('OPENAI_API_KEY')
 print("api_key", API_KEY)
-lm = dspy.LM('openai/gpt-4o-mini', api_key=API_KEY)
+N = 2.3
+N = 4
+lm = dspy.LM('openai/gpt-4o-mini', api_key=API_KEY, temperature=0.001*N)
 dspy.settings.configure(lm=lm)
 
+dspy.settings.configure(lm=lm)
 class DatasetHelper():
     # TODO: Move this to the models file or a helper folder for models. 
     def __init__(self, csv_file_uri, enriched_columns_properties=None, enriched_dataset_schema=None, save_to_db=False) -> None:
         self.summary = None
         self.df = utils.read_dataframe(csv_file_uri)
+        print("df", self.df)
         self.file_name = csv_file_uri.split("/")[-1]
         self._column_properties = enriched_columns_properties
         self._dataset_schema = enriched_dataset_schema

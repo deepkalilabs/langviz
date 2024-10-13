@@ -42,7 +42,7 @@ const UploadCSV: React.FC<UploadCSVProps> = ({ onDataReceived, onUploadComplete 
         data: originalData,
         name: 'Uploaded CSV',
         description: 'Data uploaded via CSV',
-        url: 'N/A'
+        uri: ''
       };
       onDataReceived(originalDataSet, apiData);
       onUploadComplete();
