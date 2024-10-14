@@ -23,7 +23,7 @@ import mplcursors
 import numpy as np
 API_KEY = os.environ.get('OPENAI_API_KEY')
 print("api_key", API_KEY)
-N = 4
+N = 8
 lm = dspy.LM('openai/gpt-4o-mini', api_key=API_KEY, temperature=0.001*N)
 dspy.settings.configure(lm=lm)
 
@@ -42,7 +42,7 @@ class VisualizationRecommender(dspy.Signature):
             columns_involved: List[str]
             reason: str
         
-        Pick between area_chart, line_chart, bar_chart, pie_chart, scatter_plot_chart, hexbin_chart.
+        Only pick between area_chart, line_chart, bar_chart, pie_chart, scatter_plot_chart, hexbin_chart.
     """
     schema = dspy.InputField(desc="The schema of the dataset")
     question = dspy.InputField(desc="The question to be answered")
@@ -102,7 +102,7 @@ class PandasVisualizationCode(dspy.Signature):
 
 class DatasetVisualizations(dspy.Module):
     def __init__(self, dataset, questions: list) -> None:
-        self.dataset = dataset
+        self.main_dataset = dataset
         self.viz_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'example_charts_pd')
 
         self.visualization_recommender = dspy.ChainOfThought(VisualizationRecommender)
@@ -116,7 +116,7 @@ class DatasetVisualizations(dspy.Module):
     
     def visualization_recommender_helper(self, question: str):
         try:
-            visualizations = self.visualization_recommender(schema=self.dataset.enriched_dataset_schema, question=question)
+            visualizations = self.visualization_recommender(schema=self.main_dataset.enriched_dataset_schema, question=question)
             return visualizations
         except Exception as e:
             print("Skipping visualization recommendation because of error: ", e)
@@ -148,6 +148,7 @@ class DatasetVisualizations(dspy.Module):
         except Exception as e:
             print("Skipping pandas visualization code generation because of error: ", e, visualization_type)
     
+    
     def clean_code(self, code):
         return code.strip('`').replace('python', '').strip()
 
@@ -165,17 +166,23 @@ class DatasetVisualizations(dspy.Module):
     def get_enriched_extracted_columns(self, extracted_df):
         extracted_df_set = set(extracted_df.columns.to_list())
         enriched_extracted_columns = []
-        for column_details in self.dataset.enriched_column_properties:
+        for column_details in self.main_dataset.enriched_column_properties:
             if column_details.get('column_name', '') in extracted_df_set:
                 enriched_extracted_columns.append(column_details)
         return enriched_extracted_columns
     
     
-    async def generate_viz(self, enriched_dataset_schema, visualization):
-        viz_docs = open(os.path.join(self.viz_dir, f"{visualization.visualization_type}.py")).read()            
+    async def generate_viz(self, enriched_dataset, visualization):
+        if os.path.exists(os.path.join(self.viz_dir, f"{visualization.visualization_type}.py")):
+            viz_docs = open(os.path.join(self.viz_dir, f"{visualization.visualization_type}.py")).read()            
+        elif os.path.exists(os.path.join(self.viz_dir, f"{visualization.visualization_type}_chart.py")):
+            viz_docs = open(os.path.join(self.viz_dir, f"{visualization.visualization_type}_chart.py")).read()
+        else:
+            raise ValueError(f"No visualization docs found for {visualization.visualization_type}")
+            
         try:
             pd_code = self.pandas_code_generator_helper(
-                enriched_dataset_schema, 
+                enriched_dataset.enriched_dataset_schema, 
                 visualization.visualization_type,
                 visualization.columns_involved,
                 viz_docs
@@ -185,7 +192,8 @@ class DatasetVisualizations(dspy.Module):
             print("Skipping pandas code execution because of error: ", e, visualization)
         
         try:
-            local_namespace = {'pd': pd, 'df': self.dataset.df, 'plt': plt}
+            print("self.main_dataset.df", self.main_dataset)
+            local_namespace = {'pd': pd, 'df': enriched_dataset.df, 'plt': plt}
             extracted_df = self.execute_pandas_code(pd_code.pandas_code, local_namespace, 'extract_df')
             print("extracted_df_list", extracted_df)
         except Exception as e:
@@ -199,6 +207,7 @@ class DatasetVisualizations(dspy.Module):
         try_count = 0
         prev_pd_code = None
         error_prev_pd_code = None
+        save_file_name = f"{visualization.visualization_type}_test.svg"
         while try_count < 5:
             try:
                 pd_viz_code = self.pandas_visualization_code_generator_helper(
@@ -208,30 +217,39 @@ class DatasetVisualizations(dspy.Module):
                     prev_pd_code,
                     error_prev_pd_code
                 )
+                
                 print(self.clean_code(pd_viz_code.pandas_code))
     
-                local_namespace = {'pd': pd, 'df': extracted_df, 'plt': plt, 'mplcursors': mplcursors, 'np': np, 'save_file_name': f"{visualization.visualization_type}_test.svg"}
+                local_namespace = {'pd': pd, 'df': extracted_df, 'plt': plt, 'mplcursors': mplcursors, 'np': np, 'save_file_name': save_file_name}
+                
+                print("debugging pd_viz_code", self.clean_code(pd_viz_code.pandas_code))
+                
                 extracted_viz = self.execute_pandas_code(pd_viz_code.pandas_code, local_namespace, 'extract_viz')
+                
+                with open(save_file_name, "r") as f:
+                    svg_content = f.read()
+                
+                svg_json = json.dumps({'svg': svg_content})
+                
                 print("extracted_viz", extracted_viz)
-                break
+                return {
+                    'viz_name': visualization.visualization_type,
+                    'data': extracted_df,
+                    'pd_code': pd_code.pandas_code,
+                    'pd_viz_code': pd_viz_code.pandas_code,
+                    'svg_json': svg_json
+                }
             except Exception as e:
                 try_count += 1
                 print("Skipping pandas visualization code execution because of error: ", e, visualization)
                 prev_pd_code = pd_viz_code.pandas_code
                 error_prev_pd_code = e
-        
-        return {
-            'viz_name': visualization.visualization_type,
-            'data': extracted_df,
-            'pd_code': pd_code.pandas_code
-        }
-        
-    
+                
     async def process_all_visualizations(self, question):
         viz = self.visualization_recommender_helper(question)
         
         for visualization in viz.visualizations:
-            result = await self.generate_viz(self.dataset.enriched_dataset_schema, visualization)
+            result = await self.generate_viz(self.main_dataset.enriched_dataset_schema, visualization)
             print(result)
             # yield result
             

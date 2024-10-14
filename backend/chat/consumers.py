@@ -22,10 +22,10 @@ class DatasetInitiate:
     user: User
     
 @dataclass
-class VisualizationInitiate:
+class VisualizationContext:
     questions: list
     session_id: uuid.UUID
-
+    
 class ChatConsumer(AsyncWebsocketConsumer):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -36,11 +36,14 @@ class ChatConsumer(AsyncWebsocketConsumer):
         self.questions = None
         
     @sync_to_async
-    def initiate_viz_handler(self, initiate_viz: VisualizationInitiate):
-            
-        self.enrich_dataset = ChatSessionModel.objects.get(session_id=initiate_viz.session_id).main_dataset 
+    def initiate_viz_handler(self, initiate_viz: VisualizationContext):
         
-        print("enrich dataset", self.enrich_dataset)
+        if self.dataset_viz_handler is not None:
+            return self.dataset_viz_handler
+            
+        dataset_chat_model = ChatSessionModel.objects.get(session_id=initiate_viz.session_id).main_dataset 
+        
+        self.enrich_dataset = DatasetHelper(dataset_chat_model.uri, enriched_columns_properties=dataset_chat_model.enriched_columns_properties, enriched_dataset_schema=dataset_chat_model.enriched_dataset_schema, save_to_db=False)
         
         if self.enrich_dataset is None:
             raise ValueError("Dataset not created")
@@ -48,7 +51,8 @@ class ChatConsumer(AsyncWebsocketConsumer):
         self.questions = initiate_viz.questions
         
         self.dataset_viz_handler = DatasetVisualizations(self.enrich_dataset, initiate_viz.questions)
-
+        
+        return self.dataset_viz_handler
         
     async def connect(self):
         print("connected to server")
@@ -62,15 +66,17 @@ class ChatConsumer(AsyncWebsocketConsumer):
         print(f"Disconnected with code: {close_code}")
         pass
     
+    def clean_code(self, code):
+        return code.strip('`').replace('python', '').replace('\n', ' ').replace('\'', '"').strip()
     
     # TODO: create interface for receiving data
     async def receive(self, text_data: list):
         text_data = json.loads(text_data)
         text_data_json, message_type = text_data['data'], text_data['type']
         
-        initiate_viz = VisualizationInitiate(questions=text_data_json['questions'], session_id=text_data_json['session_id'])
+        viz_context = VisualizationContext(questions=text_data_json['questions'], session_id=text_data_json['session_id'])
         
-        await self.initiate_viz_handler(initiate_viz)
+        await self.initiate_viz_handler(viz_context)
         
         if message_type == 'generate_visualizations':
             # Acknowledge the request
@@ -84,19 +90,14 @@ class ChatConsumer(AsyncWebsocketConsumer):
                 'chartData': None
             }))
             
-            # Setup the visualization handler
-            await self.initiate_viz_handler(initiate_viz)
             
             if self.dataset_viz_handler is None:
                 raise ValueError("Dataset visualization handler not initialized")
         
-            
             # Generate the visualization types
-            visualization_objects = self.dataset_viz_handler.visualization_recommender_helper(question=initiate_viz.questions)
-            
-            print("debugging visualization objects", visualization_objects.visualizations)
+            visualization_objects = self.dataset_viz_handler.visualization_recommender_helper(question=viz_context.questions)
 
-            self.viz_types = [viz.visualization_type for viz in visualization_objects.visualizations]
+            self.viz_types = set([viz.visualization_type for viz in visualization_objects.visualizations])
             
             await self.send(text_data=json.dumps({
                 'role': 'assistant',
@@ -107,16 +108,16 @@ class ChatConsumer(AsyncWebsocketConsumer):
             
             # Generate the visualization code
             for viz in visualization_objects.visualizations:
-                viz_code = await self.dataset_viz_handler.generate_viz(self.enrich_dataset.enriched_dataset_schema, viz)
-                
-                print("debugging viz", viz)
-                print("debugging viz code", viz_code)
+                viz_dict = await self.dataset_viz_handler.generate_viz(self.enrich_dataset, viz)
                 
                 text_data=json.dumps({
                     'role': 'assistant',
                     'type': 'viz_code',
-                    'content': viz.visualization_type,
-                    'chartData': viz_code
+                    'content': f"{viz_dict['viz_name']} visualization generated",
+                    'viz_name': viz_dict['viz_name'],
+                    'pd_code': viz_dict['pd_code'],
+                    'pd_viz_code': viz_dict['pd_viz_code'],
+                    'svg_json': viz_dict['svg_json']
                 })
                 
                 await self.send(text_data)

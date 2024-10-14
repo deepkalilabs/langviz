@@ -38,6 +38,8 @@ def create_dataset_helper(request):
         
         dataset = DatasetModel.objects.last()
         
+        print("dataset", dataset)
+        
         return dataset
     except Exception as e:
         raise ValueError(f'Failed to create dataset: {str(e)}')

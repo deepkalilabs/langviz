@@ -16,9 +16,9 @@ interface ChatProps {
 
 interface ChartData {
   viz_name: string;
-  data: object;
-  js_code: string;
   pd_code: string;
+  pd_viz_code: string;
+  svg_json: string;
 }
 
 // TODO: Decouple user & server messages
@@ -42,18 +42,28 @@ const Chat: React.FC<ChatProps> = ({ originalData, dataResponse }) => {
 
   const setMessageHandler = (msg: ChatMessage) => {
     if (msg.content) {
+      console.log("msg", msg.content)
       setMessages(prev => [
         ...prev,
         msg
       ]);
     }
   }
-  
+
   useEffect(() => {
+    console.log("lastMessage", lastMessage)
     if (lastMessage !== null) {
       try {
-        const message = JSON.parse(lastMessage.data);
-        setMessageHandler(message);
+        const message_received = JSON.parse(lastMessage.data);
+        const chartData: ChartData = {
+          viz_name: message_received.viz_name,
+          pd_code: message_received.pd_code,
+          pd_viz_code: message_received.pd_viz_code,
+          svg_json: message_received.svg_json
+        }
+        const msg: ChatMessage = { role: 'assistant', content: message_received.content, type: message_received.type, chartData: chartData }
+        console.log("message here", msg)
+        setMessageHandler(msg);
       } catch (error) {
         console.error('Error parsing WebSocket message:', error);
       }
@@ -80,7 +90,8 @@ const Chat: React.FC<ChatProps> = ({ originalData, dataResponse }) => {
     },
     onError: (error) => {
       console.error('Error sending message:', error);
-      setMessageHandler({ role: 'assistant', content: 'Sorry, there was an error processing your request.' })
+      console.log("error", error)
+      // setMessageHandler({ role: 'assistant', content: 'Sorry, there was an error processing your request.' })
     }
   });
 
@@ -110,7 +121,7 @@ const Chat: React.FC<ChatProps> = ({ originalData, dataResponse }) => {
             {message.chartData && (
               // TODO: Better type handling for chartData
               <div className="mt-4">
-                <ChartContainer viz_name={message.chartData.viz_name} data={message.chartData.data} js_code={message.chartData.js_code} pd_code={message.chartData.pd_code} />
+                <ChartContainer viz_name={message.chartData.viz_name} pd_viz_code={message.chartData.pd_viz_code} svg_json={message.chartData.svg_json} pd_code={message.chartData.pd_code} />
               </div>
             )}
           </div>
