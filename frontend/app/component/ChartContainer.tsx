@@ -1,22 +1,40 @@
 import React from 'react';
 import PDVisualization from './PDVisualization';
+import { Button } from '@/components/ui/button';
+import { ChatMessage, ChartData } from './types/local';
 
-// TODO: Move to types.ts
-interface ChartData {
-  viz_name: string;
-  pd_code: string;
-  pd_viz_code: string;
-  svg_json: string;
+interface ChartContainerProps {
+  message: ChatMessage;
+  setReplyToAssistantMessageIdx: React.Dispatch<React.SetStateAction<number | null>>;
 }
 
-const ChartContainer: React.FC<ChartData> = ({ viz_name, pd_code, pd_viz_code, svg_json }) => {
+const ChartContainer: React.FC<ChartContainerProps> = ({ message, setReplyToAssistantMessageIdx }) => {
   return (
-    svg_json ? <PDVisualization
-      viz_name={viz_name}
-      svg_json={svg_json}
-      pd_code={pd_code}
-      pd_viz_code={pd_viz_code}
-    /> : "" 
+    <div className="w-full h-full p-4 border border-gray-300 rounded-lg shadow-md">
+      {
+        message.chartData ? (
+          <div>
+            <div className="w-full h-full justify-center items-center">
+              <PDVisualization
+                viz_name={message.chartData?.viz_name}
+                svg_json={message.chartData?.svg_json}
+                pd_code={message.chartData?.pd_code}
+                pd_viz_code={message.chartData?.pd_viz_code}
+              />
+            </div>
+            <div className="flex justify-center items-center">
+              <Button onClick={() => {
+                console.log("message.chartData?.reply_to_assistant_message_id", message.chartData?.reply_to_assistant_message_id)
+                debugger;
+                setReplyToAssistantMessageIdx(message.chartData?.reply_to_assistant_message_id ?? null)
+              }}>
+                Refine
+              </Button>
+            </div>
+          </div>
+      ) : ""
+      }
+    </div>
   );
 };
 

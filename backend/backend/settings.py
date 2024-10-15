@@ -30,7 +30,6 @@ DEBUG = os.environ.get('DEBUG', 'True') == 'True'
 
 ALLOWED_HOSTS = os.environ.get('ALLOWED_HOSTS', 'localhost 127.0.0.1 0.0.0.0').split(' ')
 
-
 # Application definition
 
 INSTALLED_APPS = [
@@ -44,11 +43,12 @@ INSTALLED_APPS = [
     'corsheaders',
     'rest_framework',
     'django_extensions',
-    'chat',
+    'chat.apps.ChatConfig',
     'data_management.apps.DataManagementConfig',
     'llm_agents.apps.LlmAgentsConfig',
     'accounts.apps.AccountsConfig',
     'channels',
+    'django_pdb',
 ]
 
 AUTH_USER_MODEL = "accounts.User"
@@ -101,7 +101,6 @@ DATABASES = {
         conn_max_age=600,
     )
 }
-
 
 # Password validation
 # https://docs.djangoproject.com/en/5.1/ref/settings/#auth-password-validators

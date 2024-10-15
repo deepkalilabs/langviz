@@ -1,8 +1,8 @@
 from django.db import models
-from chat.models import Message, Dataset
+from chat.models import UserMessage, Dataset
     
 class Vizualization(models.Model):
-    question = models.ForeignKey(Message, on_delete=models.CASCADE)
+    question = models.ForeignKey(UserMessage, on_delete=models.CASCADE)
     name = models.CharField(max_length=200)
     js_code = models.TextField()
     description = models.TextField()

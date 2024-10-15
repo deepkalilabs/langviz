@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Dataset, ChatSession, Message
+from .models import Dataset, ChatSession, UserMessage, AssistantMessage   
 
 class DatasetSerializer(serializers.ModelSerializer):
     class Meta:
@@ -11,7 +11,14 @@ class ChatSessionSerializer(serializers.ModelSerializer):
         model = ChatSession
         fields = '__all__'
 
-class MessageSerializer(serializers.ModelSerializer):
+class UserMessageSerializer(serializers.ModelSerializer):
     class Meta:
-        model = Message
+        model = UserMessage
         fields = '__all__'
+
+class AssistantMessageSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = AssistantMessage
+        fields = '__all__'
+        
+    

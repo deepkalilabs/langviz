@@ -4,9 +4,9 @@ from django.utils.decorators import method_decorator
 from rest_framework import viewsets, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
-from .models import Dataset as DatasetModel, ChatSession as ChatSessionModel, Message as MessageModel
+from .models import Dataset as DatasetModel, ChatSession as ChatSessionModel, UserMessage as UserMessageModel, AssistantMessage as AssistantMessageModel
 from accounts.models import User
-from .serializers import DatasetSerializer, ChatSessionSerializer, MessageSerializer
+from .serializers import DatasetSerializer, ChatSessionSerializer, UserMessageSerializer, AssistantMessageSerializer
 import requests
 import pandas as pd
 from io import StringIO
@@ -32,6 +32,7 @@ def create_dataset_helper(request):
         raise ValueError('uri is required')
     
     try:
+        #TODO: Uncomment this.
         # enrich_schema = DatasetEnrich(uri).forward()
         
         # dataset = DatasetModel.objects.create(name=name, uri=uri, description=description, enriched_columns_properties=enrich_schema['enriched_column_properties'], enriched_dataset_schema=enrich_schema['enriched_dataset_schema'])
@@ -71,24 +72,3 @@ class ChatSession(APIView):
         datasets = DatasetModel.objects.first()
         serializer = DatasetSerializer(datasets)
         return Response(serializer.data)
-    
-    
-@method_decorator(csrf_exempt, name='dispatch')
-class ChatSessionMessage(APIView):
-    authentication_classes = []
-    permission_classes = [AllowAny]
-    
-    def post(self, request, format=None):
-        questions = request.data.get('questions', [])
-        dataset = DatasetModel.objects.first()
-        print("dataset", dataset)
-        pprint(dataset.enriched_columns_properties)
-        pprint(dataset.enriched_dataset_schema)
-        enriched_dataset = DatasetHelper(dataset.uri, dataset.enriched_columns_properties, dataset.enriched_dataset_schema)
-        
-        viz_data_code = DatasetVisualizations(enriched_dataset, questions).forward()
-        
-        return Response(viz_data_code, status=status.HTTP_200_OK)
-        
-    def get(self, request, format=None):
-        pass

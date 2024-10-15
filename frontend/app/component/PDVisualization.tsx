@@ -1,12 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-
-interface PandasSvgViz {
-  pd_code: string;
-  pd_viz_code: string;
-  svg_json: string;
-  viz_name: string;
-}
-
+import { PandasSvgViz } from './types/local';
 const SVGDisplay = (svgData: any) => {
   return (
     <div dangerouslySetInnerHTML={{ __html: svgData.svgData }} />
@@ -36,7 +29,7 @@ const PDVisualization: React.FC<PandasSvgViz> = ({ viz_name, svg_json, pd_code, 
     }, [svg_json])
 
   return (
-    <div className="border border-gray-300 p-4 my-4">
+    <div className="border border-gray-300 p-4 my-4 w-full h-full justify-center items-center">
       <h3 className="text-lg font-bold mb-2">{viz_name}</h3>
       {svgData ? <SVGDisplay svgData={svgData} /> : <p>Loading...</p>}
       {error && <div className="text-red-500 mt-2">Error executing code: {error}</div>}

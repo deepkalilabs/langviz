@@ -32,10 +32,19 @@ class Visualization(BaseModel):
     visualization_type: str
     columns_involved: List[str]
     reason: str
+    
+@dataclass
+class AssistantMessageBody:
+    reason: str
+    viz_name: str
+    pd_code: str
+    pd_viz_code: str
+    svg_json: str
+    columns_involved: List[str]
 
 class VisualizationRecommender(dspy.Signature):
     """
-        Given the schema of the dataset and a question, return a list of 4 well-thought visualization_types to help understand the question, the columns involved, and the reason for recommendation. The returned object should follow the Visualization class structure.
+        Given the schema of the dataset and a question, return a list of 2 well-thought visualization_types to help understand the question, the columns involved, and the reason for recommendation. The returned object should follow the Visualization class structure.
         
         class Visualization(BaseModel):
             visualization_type: str
@@ -101,7 +110,7 @@ class PandasVisualizationCode(dspy.Signature):
     
 
 class DatasetVisualizations(dspy.Module):
-    def __init__(self, dataset, questions: list) -> None:
+    def __init__(self, dataset, question: str) -> None:
         self.main_dataset = dataset
         self.viz_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'example_charts_pd')
 
@@ -109,13 +118,14 @@ class DatasetVisualizations(dspy.Module):
         self.pandas_code_generator = dspy.ChainOfThought(PandasTransformationCode)
         self.pandas_visualization_code_generator = dspy.ChainOfThought(PandasVisualizationCode)
         # self.visualization_code_generator = dspy.ChainOfThoughtWithHint(DatasetVisualizationsCode) #, hint=hint)
-        self.questions = questions
+        self.question = question
         self.executor = concurrent.futures.ThreadPoolExecutor(max_workers=10)
         self.question_viz_details = {}
         
     
     def visualization_recommender_helper(self, question: str):
         try:
+            print("about to recommend visualization")
             visualizations = self.visualization_recommender(schema=self.main_dataset.enriched_dataset_schema, question=question)
             return visualizations
         except Exception as e:
@@ -172,7 +182,8 @@ class DatasetVisualizations(dspy.Module):
         return enriched_extracted_columns
     
     
-    async def generate_viz(self, enriched_dataset, visualization):
+    def generate_viz(self, enriched_dataset, visualization):
+        
         if os.path.exists(os.path.join(self.viz_dir, f"{visualization.visualization_type}.py")):
             viz_docs = open(os.path.join(self.viz_dir, f"{visualization.visualization_type}.py")).read()            
         elif os.path.exists(os.path.join(self.viz_dir, f"{visualization.visualization_type}_chart.py")):
@@ -232,13 +243,18 @@ class DatasetVisualizations(dspy.Module):
                 svg_json = json.dumps({'svg': svg_content})
                 
                 print("extracted_viz", extracted_viz)
-                return {
-                    'viz_name': visualization.visualization_type,
-                    'data': extracted_df,
-                    'pd_code': pd_code.pandas_code,
-                    'pd_viz_code': pd_viz_code.pandas_code,
-                    'svg_json': svg_json
-                }
+                
+                assistant_message_body = AssistantMessageBody(
+                    reason=visualization.reason,
+                    viz_name=visualization.visualization_type,
+                    columns_involved=visualization.columns_involved,
+                    pd_code=pd_code.pandas_code,
+                    pd_viz_code=pd_viz_code.pandas_code,
+                    svg_json=svg_json
+                )
+                
+                return assistant_message_body
+                
             except Exception as e:
                 try_count += 1
                 print("Skipping pandas visualization code execution because of error: ", e, visualization)
@@ -255,14 +271,14 @@ class DatasetVisualizations(dspy.Module):
             
     def forward(self):
         start_time = time.time()
-        if len(self.questions) > 1:
+        if len(self.question) > 1:
             raise ValueError("More than one questions provided")
         
         results = []
         
-        asyncio.run(self.process_all_visualizations(self.questions[0]))
+        # asyncio.run(self.process_all_visualizations(self.question))
         
-        # results = [result for result in self.process_all_visualizations(self.questions[0])]
+        results = [result for result in self.process_all_visualizations(self.questions[0])]
         
         end_time = time.time()
         print(f"Time taken: {end_time - start_time:.2f} seconds") 
@@ -270,12 +286,14 @@ class DatasetVisualizations(dspy.Module):
     
 if __name__ == "__main__":
     csv_file_uri = "https://raw.githubusercontent.com/uwdata/draco/master/data/cars.csv"
-    questions = [
+    question = "How does engine size correlate with fuel efficiency for both city and highway across different vehicle types?"
+    
+    """
             "How does engine size correlate with fuel efficiency for both city and highway across different vehicle types?",
             # "What is the distribution of retail prices across different vehicle types, and how does it compare to dealer costs?",
             # "How does the horsepower-to-weight ratio vary among different vehicle types, and is there a correlation with retail price?",
             # "What is the relationship between a vehicle's physical dimensions (length, width, wheelbase) and its fuel efficiency?"
-        ]
+    """
     
     import dataset_enrich        
     
@@ -283,9 +301,12 @@ if __name__ == "__main__":
     
     enriched_dataset = dataset_enrich.DatasetHelper(csv_file_uri, enrich_schema['enriched_column_properties'], enrich_schema['enriched_dataset_schema'])
     
-    enrich = DatasetVisualizations(enriched_dataset, questions)
+    enrich = DatasetVisualizations(enriched_dataset, question)
     enrich.forward()
 
     
     
 
+"""
+can you compare the weight of cars to their type?
+"""

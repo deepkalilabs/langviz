@@ -64,13 +64,13 @@ class DatasetVisualizationsCode(dspy.Signature):
     #TODO: Use dspy hints to format the code
     
 class DatasetVisualizations(dspy.Module):
-    def __init__(self, dataset, questions: list) -> None:
+    def __init__(self, dataset, question: str) -> None:
         self.dataset = dataset
         self.viz_dir = os.path.join(os.getcwd(), 'example_charts')
         self.visualization_recommender = dspy.ChainOfThought(VisualizationRecommender)
         self.pandas_code_generator = dspy.ChainOfThought(PandasTransformationCode)
         self.visualization_code_generator = dspy.ChainOfThought(DatasetVisualizationsCode)
-        self.questions = questions
+        self.question = question
         
         
     def visualization_recommender_helper(self, question: str):
@@ -106,7 +106,7 @@ class DatasetVisualizations(dspy.Module):
     def forward(self) -> dict:
         self.enrich_fields()
         self.enrich_dataset_description()
-        for question in self.questions:
+        for question in self.question:
             viz = self.visualization_recommender_helper(question)
             for visualization in viz.visualizations:
                 pd_code = self.pandas_code_generator_helper(self.dataset.dataset_schema, visualization.visualization, visualization.columns_involved)
@@ -131,12 +131,15 @@ if __name__ == "__main__":
     lm = dspy.LM('openai/gpt-4 ', api_key=API_KEY)
     dspy.settings.configure(lm=lm)
     csv_file_uri = "https://raw.githubusercontent.com/uwdata/draco/master/data/cars.csv"
-    questions = [
-            "How does engine size correlate with fuel efficiency (city and highway) across different vehicle types?",
+    question = "How does engine size correlate with fuel efficiency (city and highway) across different vehicle types?"
+    
+    """
+    [
             # "What is the distribution of retail prices across different vehicle types, and how does it compare to dealer costs?",
             # "How does the horsepower-to-weight ratio vary among different vehicle types, and is there a correlation with retail price?",
             # "What is the relationship between a vehicle's physical dimensions (length, width, wheelbase) and its fuel efficiency?"
-        ]
+    ]
+    """
     
     from llm_agents.helpers.dataset_enrich import DatasetHelper, DatasetEnrich
     
@@ -144,9 +147,7 @@ if __name__ == "__main__":
     
     enriched_dataset = DatasetHelper(csv_file_uri, enrich_schema['column_properties'], enrich_schema['dataset_schema'])
     
-    breakpoint()
-    
-    enrich = DatasetVisualizations(enriched_dataset, questions)
+    enrich = DatasetVisualizations(enriched_dataset, question)
     enrich()
 
     

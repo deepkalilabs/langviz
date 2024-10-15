@@ -1,30 +1,49 @@
 import sys
 import os
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from pathlib import Path
+
+sys.path.append(str(Path(__file__).resolve().parent.parent))
+
 import json
 import asyncio
-from channels.generic.websocket import AsyncWebsocketConsumer
-from llm_agents.helpers.dataset_enrich import DatasetEnrich, DatasetHelper
-from llm_agents.helpers.question_viz import DatasetVisualizations
-from chat.models import Dataset as DatasetModel, ChatSession as ChatSessionModel, Message as MessageModel
-from accounts.models import User
-from asgiref.sync import sync_to_async
-from pprint import pprint
+from typing import Optional, List
+from dataclasses import dataclass, asdict
 import uuid
+
+from channels.generic.websocket import AsyncWebsocketConsumer
+from asgiref.sync import sync_to_async
+from django.core.exceptions import ObjectDoesNotExist
+
+# Assuming these imports are correct and the modules exist
+from llm_agents.helpers.dataset_enrich import DatasetHelper
+from llm_agents.helpers.question_viz import DatasetVisualizations
+from chat.models import Dataset as DatasetModel, ChatSession as ChatSessionModel, UserMessage as UserMessageModel, AssistantMessage as AssistantMessageModel
+from accounts.models import User as UserModel
 from chat.serializers import ChatSessionSerializer
-from dataclasses import dataclass
+
+# Add the parent directory to sys.path
 
 @dataclass
 class DatasetInitiate:
     uri: str
     name: str
     description: str
-    user: User
+    user: UserModel
     
 @dataclass
-class VisualizationContext:
-    questions: list
+class UserMessageBody:
+    question: str
     session_id: uuid.UUID
+    assistant_message_id: Optional[int] = None
+    
+@dataclass
+class AssistantMessageBody:
+    reason: str
+    viz_name: str
+    columns_involved: List[str]
+    pd_code: str
+    pd_viz_code: str
+    svg_json: str
     
 class ChatConsumer(AsyncWebsocketConsumer):
     def __init__(self, *args, **kwargs):
@@ -34,94 +53,145 @@ class ChatConsumer(AsyncWebsocketConsumer):
         self.dataset_viz_handler = None
         self.viz_types = None
         self.questions = None
-        
-    @sync_to_async
-    def initiate_viz_handler(self, initiate_viz: VisualizationContext):
-        
-        if self.dataset_viz_handler is not None:
-            return self.dataset_viz_handler
-            
-        dataset_chat_model = ChatSessionModel.objects.get(session_id=initiate_viz.session_id).main_dataset 
-        
-        self.enrich_dataset = DatasetHelper(dataset_chat_model.uri, enriched_columns_properties=dataset_chat_model.enriched_columns_properties, enriched_dataset_schema=dataset_chat_model.enriched_dataset_schema, save_to_db=False)
-        
-        if self.enrich_dataset is None:
-            raise ValueError("Dataset not created")
-    
-        self.questions = initiate_viz.questions
-        
-        self.dataset_viz_handler = DatasetVisualizations(self.enrich_dataset, initiate_viz.questions)
-        
-        return self.dataset_viz_handler
-        
+        self.chat_session = None
     async def connect(self):
-        print("connected to server")
         await self.accept()
-        await self.send(
-            text_data = json.dumps({"message": "connected to server"})
-        )
-        
-    
+        await self.send_json({"message": "Connected to server"})
+
     async def disconnect(self, close_code=None):
         print(f"Disconnected with code: {close_code}")
-        pass
-    
-    def clean_code(self, code):
-        return code.strip('`').replace('python', '').replace('\n', ' ').replace('\'', '"').strip()
-    
-    # TODO: create interface for receiving data
-    async def receive(self, text_data: list):
-        text_data = json.loads(text_data)
-        text_data_json, message_type = text_data['data'], text_data['type']
         
-        viz_context = VisualizationContext(questions=text_data_json['questions'], session_id=text_data_json['session_id'])
-        
-        await self.initiate_viz_handler(viz_context)
-        
-        if message_type == 'generate_visualizations':
-            # Acknowledge the request
-            if self.enrich_dataset == None:
-                raise ValueError("Dataset not created")
-                        
-            await self.send(text_data=json.dumps({
-                'role': 'assistant',
-                'type': 'ack',
-                'content': 'Generating visualization types',
-                'chartData': None
-            }))
-            
-            
-            if self.dataset_viz_handler is None:
-                raise ValueError("Dataset visualization handler not initialized")
-        
-            # Generate the visualization types
-            visualization_objects = self.dataset_viz_handler.visualization_recommender_helper(question=viz_context.questions)
+    async def send_ack(self, message: str):
+        print("message", message)
+        await self.send_json({
+            'role': 'assistant',
+            'type': 'ack',
+            'content': message,
+            'chartData': None
+        })
 
-            self.viz_types = set([viz.visualization_type for viz in visualization_objects.visualizations])
+    async def send_error(self, message: str):
+        await self.send_json({
+            'role': 'assistant',
+            'type': 'error',
+            'content': message
+        })
+
+    async def send_json(self, data: dict):
+        await self.send(text_data=json.dumps(data))
+
+
+    async def receive(self, text_data: str):
+        try:
+            data = json.loads(text_data)
+            message_type = data.get('type')
+            message_body = data.get('data')
+
+            if message_type == 'generate_visualizations':
+                print(message_body, message_type)
+                await self.handle_generate_visualizations(message_body)
+            elif message_type == 'refine_visualization':
+                await self.handle_refine_visualization(message_body)
+            else:
+                await self.send_error("Unknown message type")
+        except json.JSONDecodeError:
+            print("Invalid JSON")
+            # self.send_error("Invalid JSON")
+        except Exception as e:
+            print(f"An error occurred: {str(e)}")
+            # self.send_error(f"An error occurred: {str(e)}")
+
+
+    async def handle_generate_visualizations(self, message_body):
+        print("message_body", message_body)
+        user_message_body = UserMessageBody(**message_body)
+
+        try:
+            await self.initiate_viz_handler(user_message_body)
+            user_message = await self.create_user_message(user_message_body)
             
-            await self.send(text_data=json.dumps({
-                'role': 'assistant',
-                'type': 'viz_types',
-                'content': "Generated visualization types: " + ", ".join(self.viz_types),
-                'chartData': None
-            }))
+            await self.send_ack("Generating visualization types")
             
-            # Generate the visualization code
-            for viz in visualization_objects.visualizations:
-                viz_dict = await self.dataset_viz_handler.generate_viz(self.enrich_dataset, viz)
-                
-                text_data=json.dumps({
-                    'role': 'assistant',
-                    'type': 'viz_code',
-                    'content': f"{viz_dict['viz_name']} visualization generated",
-                    'viz_name': viz_dict['viz_name'],
-                    'pd_code': viz_dict['pd_code'],
-                    'pd_viz_code': viz_dict['pd_viz_code'],
-                    'svg_json': viz_dict['svg_json']
-                })
-                
-                await self.send(text_data)
+            visualization_objects = self.generate_visualization_types(user_message_body.question)
+            
+            all_viz = set([viz.visualization_type for viz in visualization_objects.visualizations])
+            print("all_viz", all_viz)
+
+            await self.send_ack(f"Generated visualization types: {all_viz}")
+            
+            await self.generate_and_send_visualizations(visualization_objects)
+        except ValueError as e:
+            print(str(e))
+            # await self.send_error(str(e))
+            
+    @sync_to_async
+    def initiate_viz_handler(self, user_message: UserMessageBody):
+        if self.dataset_viz_handler is not None:
+            return
+
+        try:
+            self.chat_session = ChatSessionModel.objects.get(session_id=user_message.session_id)
+                        
+            dataset_chat_model = self.chat_session.main_dataset
+            
+            self.enrich_dataset = DatasetHelper(
+                dataset_chat_model.uri,
+                enriched_columns_properties=dataset_chat_model.enriched_columns_properties,
+                enriched_dataset_schema=dataset_chat_model.enriched_dataset_schema,
+                save_to_db=False
+            )
+            
+            self.dataset_viz_handler = DatasetVisualizations(self.enrich_dataset, user_message.question)
+            print("dataset_viz_handler", self.dataset_viz_handler)
+            
+            
+        except ObjectDoesNotExist:
+            raise ValueError("Chat session not found")
+        except Exception as e:
+            raise ValueError(f"Failed to initialize visualization handler: {str(e)}")
+
+    @sync_to_async    
+    def create_user_message(self, user_message_body: UserMessageBody):
+        return UserMessageModel.objects.create(
+            session=self.chat_session,
+            question=user_message_body.question,
+            reply_to_assistant_message=user_message_body.assistant_message_id,
+            content=json.dumps(user_message_body.__dict__)
+        )
+
+    @sync_to_async
+    def create_assistant_message(self, assistant_msg_body: AssistantMessageBody):
+        return AssistantMessageModel.objects.create(
+            session=self.chat_session,
+            viz_name=assistant_msg_body.viz_name,
+            pd_code=assistant_msg_body.pd_code,
+            pd_viz_code=assistant_msg_body.pd_viz_code,
+            svg_json=assistant_msg_body.svg_json,
+            reason=assistant_msg_body.reason,
+            columns_involved=assistant_msg_body.columns_involved
+        )
+        
+    def generate_visualization_types(self, question: str):
+        if self.dataset_viz_handler is None:
+            raise ValueError("Dataset visualization handler not initialized")
+        
+        print("generating visualization types")
+        
+        return self.dataset_viz_handler.visualization_recommender_helper(question=question)
     
+
+    async def generate_and_send_visualizations(self, visualization_objects):
+        for viz in visualization_objects.visualizations:
+            assistant_msg_body = await sync_to_async(self.dataset_viz_handler.generate_viz)(self.enrich_dataset, viz)
+            
+            assistant_msg_db = await self.create_assistant_message(assistant_msg_body)
+            
+            await self.send_json({
+                'role': 'assistant',
+                'type': 'viz_code',
+                'assistant_message_id': assistant_msg_db.id,
+                **asdict(assistant_msg_body)
+            })
 
 if __name__ == "__main__":
     text_data = {
@@ -135,7 +205,7 @@ if __name__ == "__main__":
     asyncio.run(consumer.receive(sample_body))
     
     sample_body = ["How does engine size correlate with fuel efficiency for both city and highway across different vehicle types?"]
-    sample_body = json.dumps({**{"questions": sample_body}, **{"type": "generate_visualizations"}})
+    sample_body = json.dumps({**{"question": sample_body}, **{"type": "generate_visualizations"}})
     asyncio.run(consumer.receive(sample_body))
     
     # asyncio.run(consumer.receive({**text_data, **{type: "generate_visualizations"}}))

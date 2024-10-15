@@ -2,6 +2,7 @@
 from django.db import models
 from django.db.models import Manager
 from accounts.models import User
+from django.contrib.postgres.fields import ArrayField
 import uuid
 
 class DatasetManager(Manager):
@@ -38,12 +39,27 @@ class ChatSession(models.Model):
     def __str__(self):
         return str(self.session_id)
 
-class Message(models.Model):
+class UserMessage(models.Model):
     session = models.ForeignKey(ChatSession, on_delete=models.CASCADE, null=True, blank=True)
-    content = models.TextField()
+    question = models.TextField(null=True, blank=True)
+    reply_to_assistant_message = models.ForeignKey('AssistantMessage', on_delete=models.CASCADE, null=True, blank=True)
+    content = models.JSONField()
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
     def __str__(self):
-        return self.message
+        return self.question
+    
+class AssistantMessage(models.Model):
+    session = models.ForeignKey(ChatSession, on_delete=models.CASCADE, null=True, blank=True)
+    viz_name = models.TextField(null=True, blank=True)
+    pd_code = models.TextField(null=True, blank=True)
+    pd_viz_code = models.TextField(null=True, blank=True)
+    svg_json = models.TextField(null=True, blank=True)
+    reason = models.TextField(null=True, blank=True)
+    columns_involved = ArrayField(models.TextField(), null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
 
+    def __str__(self):
+        return self.viz_name

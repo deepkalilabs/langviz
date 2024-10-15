@@ -13,7 +13,7 @@ interface RightBarSheetProps {
 }
 
 const RightBarSheet: React.FC<RightBarSheetProps> = ({ dataResponse, originalData, isOpen, onOpenChange }) => {
-  const [showChat, setShowChat] = useState(false);
+  const [showChat, setShowChat] = useState(true);
   
   useEffect(() => {
     setShowChat(false);
