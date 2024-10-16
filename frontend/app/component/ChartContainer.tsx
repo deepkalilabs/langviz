@@ -5,10 +5,11 @@ import { ChatMessage, ChartData } from './types/local';
 
 interface ChartContainerProps {
   message: ChatMessage;
-  setReplyToAssistantMessageIdx: React.Dispatch<React.SetStateAction<number | null>>;
+  replyToAssistantMessageIdx: string | null;
+  setReplyToAssistantMessageIdx: React.Dispatch<React.SetStateAction<string | null>>;
 }
 
-const ChartContainer: React.FC<ChartContainerProps> = ({ message, setReplyToAssistantMessageIdx }) => {
+const ChartContainer: React.FC<ChartContainerProps> = ({ message,       replyToAssistantMessageIdx, setReplyToAssistantMessageIdx }) => {
   return (
     <div className="w-full h-full p-4 border border-gray-300 rounded-lg shadow-md">
       {
@@ -24,9 +25,7 @@ const ChartContainer: React.FC<ChartContainerProps> = ({ message, setReplyToAssi
             </div>
             <div className="flex justify-center items-center">
               <Button onClick={() => {
-                console.log("message.chartData?.reply_to_assistant_message_id", message.chartData?.reply_to_assistant_message_id)
-                debugger;
-                setReplyToAssistantMessageIdx(message.chartData?.reply_to_assistant_message_id ?? null)
+                setReplyToAssistantMessageIdx(message.chartData?.assistant_message_uuid ?? null)
               }}>
                 Refine
               </Button>

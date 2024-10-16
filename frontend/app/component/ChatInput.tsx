@@ -8,7 +8,7 @@ interface ChatInputProps {
   vizName: string | null;
   isLoading: boolean;
   handleUserSendMessage: () => void;
-  setReplyToAssistantMessageIdx: React.Dispatch<React.SetStateAction<number | null>>;
+  setReplyToAssistantMessageIdx: React.Dispatch<React.SetStateAction<string | null>>;
 }
 
 function XIcon(props: any) {
@@ -37,7 +37,7 @@ const ChatInput: React.FC<ChatInputProps> = ({ input, setInput, isLoading, setRe
     const handleSendMessage = () => {
         handleUserSendMessage();
         setInput('');
-        setReplyToAssistantMessageIdx(null);
+        // setReplyToAssistantMessageIdx(null);
     }
 
     const handleKeyPress = (e: React.KeyboardEvent<HTMLInputElement>) => {
@@ -55,7 +55,7 @@ const ChatInput: React.FC<ChatInputProps> = ({ input, setInput, isLoading, setRe
                     <p className="text-sm text-gray-600">Refining viz ... {vizName}</p>
                     <Button 
                         variant="ghost"
-                        onClick={() => setRefineMessageIdx(null)}
+                        onClick={() => setReplyToAssistantMessageIdx(null)}
                         className="rounded-full p-1 flex items-center justify-center text-gray-500 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800"
                     >
                         <XIcon className="h-4 w-4 text-gray-600 hover:text-gray-800" />

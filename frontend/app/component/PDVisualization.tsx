@@ -10,9 +10,6 @@ const PDVisualization: React.FC<PandasSvgViz> = ({ viz_name, svg_json, pd_code, 
   const [error, setError] = useState<string | null>(null);
   const [svgData, setSvgData] = useState<string | null>(null);
 
-  console.log("viz_name", viz_name)
-  console.log("pd_code", pd_code)
-
   useEffect(() => {
     try {
         const svgObject = JSON.parse(svg_json)

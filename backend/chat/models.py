@@ -40,9 +40,9 @@ class ChatSession(models.Model):
         return str(self.session_id)
 
 class UserMessage(models.Model):
+    uuid = models.UUIDField(default=uuid.uuid4, editable=False)
     session = models.ForeignKey(ChatSession, on_delete=models.CASCADE, null=True, blank=True)
     question = models.TextField(null=True, blank=True)
-    reply_to_assistant_message = models.ForeignKey('AssistantMessage', on_delete=models.CASCADE, null=True, blank=True)
     content = models.JSONField()
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -51,6 +51,8 @@ class UserMessage(models.Model):
         return self.question
     
 class AssistantMessage(models.Model):
+    parent_user_message = models.ForeignKey(UserMessage, on_delete=models.CASCADE, null=True, blank=True, related_name="assistant_messages")
+    uuid = models.UUIDField(default=uuid.uuid4, editable=False)
     session = models.ForeignKey(ChatSession, on_delete=models.CASCADE, null=True, blank=True)
     viz_name = models.TextField(null=True, blank=True)
     pd_code = models.TextField(null=True, blank=True)

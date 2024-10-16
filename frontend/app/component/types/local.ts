@@ -19,7 +19,7 @@ interface ChartData {
   pd_code: string;
   pd_viz_code: string;
   svg_json: string;
-  reply_to_assistant_message_id?: number;
+  assistant_message_uuid?: string;
 }
 
 // TODO: Decouple user & server messages

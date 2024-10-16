@@ -18,60 +18,56 @@ const Chat: React.FC<ChatProps> = ({ originalData, dataResponse }) => {
   const [csvData, setCsvData] = useState<any>(originalData);
   const [socketURL, setSocketURL] = useState(URL);
   const { sendMessage, lastMessage, readyState } = useWebSocket(socketURL); 
-  const [ replyToAssistantMessageIdx, setReplyToAssistantMessageIdx ] = useState<number | null>(null);
+  const [ replyToAssistantMessageIdx, setReplyToAssistantMessageIdx ] = useState<string | null>(null);
   const [ chartSelected, setChartSelected ] = useState<ChartData | null>(null);
   const [ refineVizName, setRefineVizName ] = useState<string | null>(null);
 
 
   const setMessageHandler = (msg: ChatMessage) => {
-    console.log("msg", msg)
     if (msg.content) {
-      console.log("msg", msg)
       setMessages(prev => [
         ...prev,
         msg
       ]);
     }
-    console.log("messages", messages)
   }  
 
   useEffect(() => {
-    console.log("replyToAssistantMessageIdx", replyToAssistantMessageIdx)
     if (replyToAssistantMessageIdx !== null) {
-      console.log("replyToAssistantMessageIdx", replyToAssistantMessageIdx)
-      setChartSelected(messages[replyToAssistantMessageIdx]?.chartData ?? null)
-      setRefineVizName(messages[replyToAssistantMessageIdx]?.chartData?.viz_name ?? null)
-      console.log("replyToAssistantMessageIdx", replyToAssistantMessageIdx)
-      console.log("messages[replyToAssistantMessageIdx]?.chartData", chartSelected)
+      for (let i = messages.length - 1; i >= 0; i--) {
+        if (messages[i].chartData?.assistant_message_uuid === replyToAssistantMessageIdx) {
+          setChartSelected(messages[i]?.chartData ?? null)
+          setRefineVizName(messages[i]?.chartData?.viz_name ?? null)
+          break;
+        }
+      }
+    } else if (replyToAssistantMessageIdx === null) {
+      setChartSelected(null)
+      setRefineVizName(null)
     }
-  }, [replyToAssistantMessageIdx])
+  }, [replyToAssistantMessageIdx, messages])
 
 
   useEffect(() => {
-    console.log("lastMessage", lastMessage)
     if (lastMessage !== null) {
       const message_received = JSON.parse(lastMessage.data);
-      console.log("message_received", message_received)
       
       if (message_received.type === "viz_code") {
         try {
-          console.log("message_received", message_received)
           const chartData: ChartData = {
             reason: message_received.reason,
             viz_name: message_received.viz_name,
             pd_code: message_received.pd_code,
             pd_viz_code: message_received.pd_viz_code,
             svg_json: message_received.svg_json,
-            reply_to_assistant_message_id: message_received.reply_to_assistant_message_id
+            assistant_message_uuid: message_received.assistant_message_uuid
           }
           const msg: ChatMessage = { role: 'assistant', content: message_received.viz_name, type: message_received.type, chartData: chartData }
-          console.log("message here", msg)
           setMessageHandler(msg);
         } catch (error) {
           console.error('Error parsing WebSocket message:', error);
         }
       } else if (message_received.type === "ack") {
-        console.log("lastMessage", lastMessage)
         const msg: ChatMessage = message_received;
         setMessageHandler(msg)
       }
@@ -82,15 +78,23 @@ const Chat: React.FC<ChatProps> = ({ originalData, dataResponse }) => {
     mutationFn: async (question: string) => {
       // TODO: Add chat history
       // TODO: Only send message Idx and fetch the messages from the server
+
+      debugger;
+
       const serverMsgBody = JSON.stringify({
-          type: "generate_visualizations",
-          data: {
-            question: question,
-            session_id: dataResponse.session_id,
-            reply_to_assistant_message_id: replyToAssistantMessageIdx
-          }
-      });
-      console.log("serverMsgBody", serverMsgBody)
+            type: replyToAssistantMessageIdx !== null ? "refine_visualizations" : "generate_visualizations",
+            user_message_body: {
+              question: question,
+              session_id: dataResponse.session_id,
+            },
+            reply_to_assistant_message_uuid: replyToAssistantMessageIdx
+        })
+      
+      if (replyToAssistantMessageIdx !== null) {
+        // setReplyToAssistantMessageIdx(null);
+        setRefineVizName(null);
+      }
+
       const serverMsg = sendMessage(serverMsgBody);
       return serverMsg;
     },
@@ -99,15 +103,12 @@ const Chat: React.FC<ChatProps> = ({ originalData, dataResponse }) => {
       setMessageHandler(serverMsg)
     },
     onError: (error) => {
-      console.log("messages", messages)
       console.error('Error sending message:', error);
-      console.log("error", error)
     }
   });
 
   const handleUserSendMessage = useCallback(() => {
     if (input.trim()) {
-      console.log("input", input)
       let userMsg: ChatMessage;
       if (replyToAssistantMessageIdx !== null) {
         const refinedInput = "(Refining " + refineVizName + ") " + input
@@ -115,7 +116,6 @@ const Chat: React.FC<ChatProps> = ({ originalData, dataResponse }) => {
       } else {
         userMsg = { role: 'user', content: input}
       }
-      console.log("userMsg", userMsg)
       setMessageHandler(userMsg);
       sendMessageMutation.mutate(input);
       setInput('');
@@ -138,7 +138,7 @@ const Chat: React.FC<ChatProps> = ({ originalData, dataResponse }) => {
             {message.chartData?.svg_json && (
               // TODO: Better type handling for chartData
               <div className="mt-4">
-                <ChartContainer message={message} setReplyToAssistantMessageIdx={setReplyToAssistantMessageIdx} />
+                <ChartContainer message={message} replyToAssistantMessageIdx={replyToAssistantMessageIdx} setReplyToAssistantMessageIdx={setReplyToAssistantMessageIdx} />
               </div>
             )}
           </div>
