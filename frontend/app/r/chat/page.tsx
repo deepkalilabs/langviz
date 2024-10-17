@@ -1,31 +1,29 @@
 'use client'
 
 import React, { useState } from 'react';
-import Sidebar from './components/Sidebar';
-import Header from './components/Header';
+import SideBar from './components/SideBar';
 import ChatArea from './components/ChatArea';
-import '../../globals.css';
 
-export default function ChatPage() {
-  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
-
-  const toggleSidebar = () => {
-    setIsSidebarOpen(!isSidebarOpen);
-  };
-
-  const initialMessages = [
-    { role: 'assistant' as const, content: 'Hello! How can I assist you today? If you have any questions or need help with data analysis, feel free to ask!' }
-  ];
+const ChatPage: React.FC = () => {
+  const [sidebarExpanded, setSidebarExpanded] = useState(true);
 
   return (
-    <div className="flex h-screen bg-white">
-      <Sidebar isOpen={isSidebarOpen} toggleSidebar={toggleSidebar} />
-
-      {/* Main content */}
-      <div className="flex-1 flex flex-col">
-        <Header title="Chat with Claude" />
-        <ChatArea initialMessages={initialMessages} />
+    <div className="flex h-screen overflow-hidden">
+      <SideBar expanded={sidebarExpanded} setExpanded={setSidebarExpanded} />
+      <div className={`flex-1 flex flex-col overflow-hidden transition-all duration-300 ${sidebarExpanded ? 'ml-64' : 'ml-16'}`}>
+        <ChatArea
+          initialMessages={[
+            {
+              role: 'assistant',
+              content: 'Hello! How can I help you today? Upload a CSV file to get started.'
+            }
+          ]}
+          onDataReceived={() => {}}
+          onUploadComplete={() => {}}
+        />
       </div>
     </div>
   );
-}
+};
+
+export default ChatPage;

@@ -9,18 +9,19 @@ interface ChartContainerProps {
   setReplyToAssistantMessageIdx: React.Dispatch<React.SetStateAction<string | null>>;
 }
 
-const ChartContainer: React.FC<ChartContainerProps> = ({ message,       replyToAssistantMessageIdx, setReplyToAssistantMessageIdx }) => {
+const ChartContainer: React.FC<ChartContainerProps> = ({ message, replyToAssistantMessageIdx, setReplyToAssistantMessageIdx }) => {
   return (
-    <div className="w-full h-full p-4 border border-gray-300 rounded-lg shadow-md">
+    <div className="w-full h-full p-6 border border-white-300 rounded-lg">
       {
         message.chartData ? (
-          <div>
-            <div className="w-full h-full justify-center items-center">
+          <div className="flex flex-col h-full">
+            <div className="flex-grow w-full mb-4">
               <PDVisualization
                 viz_name={message.chartData?.viz_name}
                 svg_json={message.chartData?.svg_json}
                 pd_code={message.chartData?.pd_code}
                 pd_viz_code={message.chartData?.pd_viz_code}
+                reason={message.chartData?.reason}
               />
             </div>
             <div className="flex justify-center items-center">
@@ -31,7 +32,7 @@ const ChartContainer: React.FC<ChartContainerProps> = ({ message,       replyToA
               </Button>
             </div>
           </div>
-      ) : ""
+        ) : ""
       }
     </div>
   );

@@ -24,7 +24,7 @@ const DataTable: React.FC<DataTableProps> = ({ dataResponse, originalData }) => 
   if (originalData.data.length === 0) return null;
 
   const headers = Object.keys(originalData.data[0]);
-  const displayedData = showAllRows ? originalData.data : originalData.data.slice(0, 10);
+  const displayedData = showAllRows ? originalData.data : originalData.data.slice(0, 7);
 
   return (
     <div className="p-4">

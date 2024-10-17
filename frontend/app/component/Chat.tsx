@@ -79,8 +79,6 @@ const Chat: React.FC<ChatProps> = ({ originalData, dataResponse }) => {
       // TODO: Add chat history
       // TODO: Only send message Idx and fetch the messages from the server
 
-      debugger;
-
       const serverMsgBody = JSON.stringify({
             type: replyToAssistantMessageIdx !== null ? "refine_visualizations" : "generate_visualizations",
             user_message_body: {

@@ -33,11 +33,11 @@ def create_dataset_helper(request):
     
     try:
         #TODO: Uncomment this.
-        # enrich_schema = DatasetEnrich(uri).forward()
+        enrich_schema = DatasetEnrich(uri).forward()
         
-        # dataset = DatasetModel.objects.create(name=name, uri=uri, description=description, enriched_columns_properties=enrich_schema['enriched_column_properties'], enriched_dataset_schema=enrich_schema['enriched_dataset_schema'])
+        dataset = DatasetModel.objects.create(name=name, uri=uri, description=description, enriched_columns_properties=enrich_schema['enriched_column_properties'], enriched_dataset_schema=enrich_schema['enriched_dataset_schema'])
         
-        dataset = DatasetModel.objects.last()
+        # dataset = DatasetModel.objects.last()
         
         print("dataset", dataset)
         
