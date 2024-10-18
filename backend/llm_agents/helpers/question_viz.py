@@ -26,12 +26,13 @@ import numpy as np
 from chat.models import User as UserModel
 import uuid
 from typing import Optional
+from dsp.modules import Claude
 
-API_KEY = os.environ.get('OPENAI_API_KEY')
-print("api_key", API_KEY)
+
 N = 9
-lm = dspy.LM('openai/gpt-4o-mini', api_key=API_KEY, temperature=0.001*N)
-dspy.settings.configure(lm=lm)
+openai_lm = dspy.LM('openai/gpt-4o-mini', api_key=os.environ.get('OPENAI_API_KEY'), temperature=0.001*N)
+anthropic_lm = dspy.LM('anthropic/claude-3-5-sonnet-20240620', api_key=os.environ.get('ANTHROPIC_API_KEY'))
+dspy.settings.configure(lm=anthropic_lm)
 
 @dataclass
 class Visualization(BaseModel):

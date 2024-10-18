@@ -6,7 +6,7 @@ const SVGDisplay = (svgData: any) => {
   );  
 };
 
-const PDVisualization: React.FC<PandasSvgViz> = ({ viz_name, svg_json, pd_code, pd_viz_code, reason }) => {
+const PDVisualization: React.FC<PandasSvgViz> = ({ viz_name, svg_json, pd_code, pd_viz_code}) => {
   const [error, setError] = useState<string | null>(null);
   const [svgData, setSvgData] = useState<string | null>(null);
 
@@ -27,23 +27,8 @@ const PDVisualization: React.FC<PandasSvgViz> = ({ viz_name, svg_json, pd_code, 
 
   return (
     <div className="p-4 mx-4 w-full h-full justify-center items-center">
-      {/* <h3 className="text-lg font-bold mb-2 text-center">
-        {viz_name.replace(/_/g, ' ')}
-      </h3>
-      <p>{reason}</p> */}
       {svgData ? <SVGDisplay svgData={svgData} /> : <p>Loading...</p>}
       {error && <div className="text-red-500 mt-2">Error executing code: {error}</div>}
-      {/* <details className="mt-4">
-        <summary className="cursor-pointer">Debug Info</summary>
-        <pre className="text-xs mt-2 p-2 bg-white-100 rounded overflow-auto">
-          {svgData ? JSON.stringify({
-            "viz_name": viz_name,
-            "pd_viz_code": pd_viz_code,
-            "svg_json": svgData,
-            "pd_code": pd_code
-          }, null, 2) : "No SVG Data"}
-        </pre>
-      </details> */}
     </div>
   );
 };

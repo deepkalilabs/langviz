@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { Send, Upload, Database } from 'lucide-react';
+import { Send, Upload, Database, XIcon } from 'lucide-react';
 import { useDropzone } from 'react-dropzone';
 import axios from 'axios';
 import { useMutation } from '@tanstack/react-query';
@@ -39,7 +39,7 @@ const ChatArea: React.FC<ChatAreaProps> = ({ initialMessages, onDataReceived, on
   useEffect(() => {
     if (lastMessage !== null) {
       const message_received = JSON.parse(lastMessage.data);
-      
+      console.log("message_received", lastMessage)
       if (message_received.type === "viz_code") {
         try {
           const chartData: ChartData = {
@@ -209,7 +209,7 @@ const ChatArea: React.FC<ChatAreaProps> = ({ initialMessages, onDataReceived, on
                   A
                 </div>
               )}
-              <div className={`max-w-[100%] rounded-lg p-2 ${
+              <div className={`max-w-full w-full rounded-lg p-2 ${
                 message.role === 'user' ? 'bg-blue-100 text-gray-800' : 'bg-gray-100 text-gray-600'
               }`}>
                 {message.chartData?.svg_json ? (
@@ -250,6 +250,23 @@ const ChatArea: React.FC<ChatAreaProps> = ({ initialMessages, onDataReceived, on
       {/* Input area - pinned to the bottom */}
       <div className="border-t border-gray-200 bg-white">
         <form onSubmit={handleSubmit} className="max-w-3xl mx-auto p-4">
+          {/* Refining message */}
+          {refineVizName && (
+            <div className="mb-2 flex items-center justify-end space-x-2">
+              <p className="text-sm text-gray-600">Refining viz ... {refineVizName}</p>
+              <button
+                type="button"
+                onClick={() => {
+                  setReplyToAssistantMessageIdx(null);
+                  setRefineVizName(null);
+                }}
+                className="p-1 rounded-full text-gray-500 hover:bg-gray-100 focus:outline-none"
+              >
+                <XIcon size={16} />
+              </button>
+            </div>
+          )}
+          
           <div className="flex items-center bg-white rounded-full border border-gray-300">
             <input
               type="text"

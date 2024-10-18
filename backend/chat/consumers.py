@@ -237,19 +237,23 @@ class ChatConsumer(AsyncWebsocketConsumer):
             raise ValueError("Dataset visualization handler not initialized")
         
         for viz in visualization_objects.visualizations:
-            assistant_msg_body: AssistantMessageBody = await sync_to_async(self.dataset_viz_handler.generate_viz)(viz)
-            
-            assistant_msg_db = await self.create_assistant_message(assistant_msg_body)
-            
-            visualization_response = {
-                'role': 'assistant',
-                'type': 'viz_code',
-                # Using UUIDs to avoid message collisions in DB/FE.
-                'assistant_message_uuid': str(assistant_msg_db.uuid),
-                **asdict(assistant_msg_body)
-            }
-            
-            await self.send_json(visualization_response)
+            try:
+                assistant_msg_body: AssistantMessageBody = await sync_to_async(self.dataset_viz_handler.generate_viz)(viz)
+                
+                assistant_msg_db = await self.create_assistant_message(assistant_msg_body)
+                
+                visualization_response = {
+                    'role': 'assistant',
+                    'type': 'viz_code',
+                    # Using UUIDs to avoid message collisions in DB/FE.
+                    'assistant_message_uuid': str(assistant_msg_db.uuid),
+                    **asdict(assistant_msg_body)
+                }
+                
+                await self.send_json(visualization_response)
+            except Exception as e:
+                print(f"An error occurred: {str(e)}")
+                continue
 
 if __name__ == "__main__":
     text_data = {
