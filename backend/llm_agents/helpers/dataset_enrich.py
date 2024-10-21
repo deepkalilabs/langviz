@@ -13,15 +13,16 @@ import os
 from pydantic import BaseModel, Field
 from dataclasses import dataclass
 from asgiref.sync import sync_to_async
-# from chat.models import Dataset as DatasetModel
+
 API_KEY = os.environ.get('OPENAI_API_KEY')
 print("api_key", API_KEY)
 N = 2.3
 N = 4
-lm = dspy.LM('openai/gpt-4o-mini', api_key=API_KEY, temperature=0.001*N)
-dspy.settings.configure(lm=lm)
+openai_lm = dspy.LM('openai/gpt-4o-mini', api_key=os.environ.get('OPENAI_API_KEY'), temperature=0.001*N)
+anthropic_lm = dspy.LM('anthropic/claude-3-5-sonnet-20240620', api_key=os.environ.get('ANTHROPIC_API_KEY'))
+dspy.settings.configure(lm=openai_lm)
+print("dspy.settings.lm", dspy.settings.lm)
 
-dspy.settings.configure(lm=lm)
 class DatasetHelper():
     # TODO: Move this to the models file or a helper folder for models. 
     def __init__(self, csv_file_uri, enriched_columns_properties=None, enriched_dataset_schema=None, save_to_db=False) -> None:
@@ -133,7 +134,6 @@ class DatasetHelper():
         
         return schema_list
 
-    
     @enriched_dataset_schema.setter
     def enriched_dataset_schema(self, new_schema):
         self._dataset_schema = new_schema

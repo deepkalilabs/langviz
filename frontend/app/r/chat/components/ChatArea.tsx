@@ -209,8 +209,8 @@ const ChatArea: React.FC<ChatAreaProps> = ({ initialMessages, onDataReceived, on
                   A
                 </div>
               )}
-              <div className={`max-w-full w-full rounded-lg p-2 ${
-                message.role === 'user' ? 'bg-blue-100 text-gray-800' : 'bg-gray-100 text-gray-600'
+              <div className={`max-w-full w-full rounded-lg p-2 flex ${
+                message.role === 'user' ? 'bg-blue-100 text-gray-800 justify-end items-end' : 'bg-gray-100 text-gray-600 justify-start items-start'
               }`}>
                 {message.chartData?.svg_json ? (
                   <div className="flex flex-col justify-start">

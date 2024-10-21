@@ -87,7 +87,7 @@ const UploadCSV: React.FC<UploadCSVProps> = ({ onDataReceived, onUploadComplete 
       ) : (
         <p>Drag and drop a CSV file here, or click to select one</p>
       )}
-      {uploadMutation.isPending && <p>Uploading...</p>}
+      {uploadMutation.isPending && <p>Uploading ...</p>}
       {uploadMutation.isError && (
         <p className='text-red-500'>
           Error: {uploadMutation.error instanceof Error ? uploadMutation.error.message : 'Unknown error'}

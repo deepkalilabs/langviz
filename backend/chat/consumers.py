@@ -85,6 +85,8 @@ class ChatConsumer(AsyncWebsocketConsumer):
         })
 
     async def send_json(self, data: dict):
+        # print("data", data)
+        # return
         await self.send(text_data=json.dumps(data))
 
 

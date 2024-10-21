@@ -5,19 +5,15 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from chat.models import AssistantMessage as AssistantMessageModel, UserMessage as UserMessageModel
 import dspy
 from llm_agents.helpers import utils 
-# import utils
 import json
-import logging
 from typing import Union
 import pandas as pd
-import warnings
 from pprint import pprint
 import os
 from pydantic import BaseModel, Field
 from typing import List
 from dataclasses import dataclass
 import time
-import asyncio 
 import concurrent.futures
 from asgiref.sync import sync_to_async
 import matplotlib.pyplot as plt
@@ -26,8 +22,6 @@ import numpy as np
 from chat.models import User as UserModel
 import uuid
 from typing import Optional
-from dsp.modules import Claude
-
 
 N = 9
 openai_lm = dspy.LM('openai/gpt-4o-mini', api_key=os.environ.get('OPENAI_API_KEY'), temperature=0.001*N)
@@ -100,25 +94,28 @@ class PandasTransformationCode(dspy.Signature):
     visualization_type = dspy.InputField(desc="Type of visualization to be generated")
     columns_involved = dspy.InputField(desc="Columns involved in the visualization to be generated")
     visualization_docs = dspy.InputField(desc="Pandas reference docs and code for the visualization for a different dataset")
+    template_code = dspy.InputField(desc="Template code to be filled in with the pandas code.")
     # prev_pd_code = dspy.InputField(desc="Previous pandas code to be used as reference.")
     # error_prev_pd_code = dspy.InputField(desc="Error in the previous pandas code.")
     pandas_code = dspy.OutputField(desc="Python code using Pandas to extract, clean, and transform the data in dataframe df. The code should return the extracted data in a format compatible with pandas visualization code as shown in the visualization docs. Return variable name should be extract_df. Keep the column names as is.")
     
 class PandasVisualizationCode(dspy.Signature):
     """
-        Given a visualization type, details of columns involved in the visualization, and sample docs for pandas code to generate this visualization, return well-thought and clean pandas code to generate this visualization using best practices. Use the following local namespace: {'pd': pd, 'df': extracted_df, 'plt': plt, 'mplcursors': mplcursors, 'np': np, 'save_file_name': save_file_name}. Please follow the following instructions strictly:
+        Given a visualization type, details of columns involved in the visualization, and sample docs for pandas code to generate this visualization, return well-thought and clean pandas code to generate this visualization using best practices. Please follow the following instructions strictly:
         
         1. This visualization should be saved as an svg using the save_file_name.
         2. Use best practices to generate the visualization code for pandas.
-        3. This visualization should be interactive.
-        4. If the previous pandas code has an error, use the error_prev_pd_code and prev_pd_code to fix and rewrite the correct version of the pandas code.
-        5. 'pd', 'df', 'plt', 'mplcursors', 'np', 'save_file_name' are in the local namespace.
+        3. If the previous pandas code has an error, use the error_prev_pd_code and prev_pd_code to fix and rewrite the correct version of the pandas code.
+        4. If the solution requires a single value (e.g. max, min, median, first, last etc), ALWAYS add a line (axvline or axhline) to the chart, ALWAYS with a legend containing the single value (formatted with 0.2F).
+        5. 'pd', 'df', 'plt', 'np', 'save_file_name' are in the local namespace.
         6. Save the generated visualization as an svg file in the save_file_name.
-        7. Avoid deduplicating data.
+        7. Avoid deduplicating data or creating duplicate charts/axis.
+        8. Charts should be of size 6x4.
     """
     visualization_type = dspy.InputField(desc="Type of visualization to be generated.")
     enriched_column_properties = dspy.InputField(desc="Details of the columns involved in the visualization. Use the column names from this to generate the visualization.")
     visualization_docs = dspy.InputField(desc="Pandas reference docs and code for the visualization for a different dataset.")
+    template_code = dspy.InputField(desc="Template code to be filled in with the pandas code.")
     prev_pd_code = dspy.InputField(desc="Previous pandas code to be used as reference.")
     error_prev_pd_code = dspy.InputField(desc="Error in the previous pandas code.")
     pandas_code = dspy.OutputField(desc="Python code using Pandas to generate the visualization using the visualization docs as reference. Return variable name should be extract_viz.")
@@ -176,24 +173,34 @@ class DatasetVisualizations(dspy.Module):
                 chat_context = f"""
                     User's last questions: {last_x_questions}
                 """ + chat_context 
-            
-            print("original_context", chat_context)
-            print("schema", self.main_dataset.enriched_dataset_schema)
                         
             refined_visualizations = self.visualization_refiner(schema=self.main_dataset.enriched_dataset_schema, question=current_question, chat_context=chat_context)
-            print("refined_visualizations", refined_visualizations)
             return refined_visualizations
         except Exception as e:
             print("Skipping visualization refinement because of error: ", e)
     
     
-    def pandas_code_generator_helper(self, enriched_dataset_schema, visualization_type, columns_involved, viz_docs, prev_pd_code=None, error_prev_pd_code=None):
+    def pandas_code_generator_helper(self, enriched_dataset_schema, visualization_type, columns_involved, viz_docs):
+        PANDAS_TRANSFORMATION_TEMPLATE_CODE = """
+            import pandas as pd
+            import numpy as np
+            import os
+            import csv
+            <other imports here>
+            def extract_data(df, columns_involved):
+                <insert code here>
+                return extracted_df
+                
+            extract_df = extract_data(df, columns_involved) # No code beyond this line.
+        """
+
         try:
             pandas_code = self.pandas_code_generator(
                 enriched_dataset_schema=enriched_dataset_schema, 
                 visualization_type=visualization_type, 
                 columns_involved=columns_involved, 
-                visualization_docs=viz_docs
+                visualization_docs=viz_docs,
+                template_code=PANDAS_TRANSFORMATION_TEMPLATE_CODE
             )
             return pandas_code
         except Exception as e:
@@ -201,11 +208,27 @@ class DatasetVisualizations(dspy.Module):
             
             
     def pandas_visualization_code_generator_helper(self, visualization_type, enriched_column_properties, visualization_docs, prev_pd_code, error_prev_pd_code):
+        PANDAS_VISUALIZATION_TEMPLATE_CODE = """
+            import pandas as pd
+            import numpy as np
+            import os
+            import csv
+            
+            <other imports here>
+            
+            figsize=(6, 4) # Charts should always be of size 6x4.
+            
+            <insert code here>
+            
+            plt.savefig(save_file_name, format='svg')
+            plt.close()
+        """
         try:
             pandas_code = self.pandas_visualization_code_generator(
                 visualization_type=visualization_type, 
                 enriched_column_properties=enriched_column_properties, 
                 visualization_docs=visualization_docs,
+                template_code=PANDAS_VISUALIZATION_TEMPLATE_CODE,
                 prev_pd_code=prev_pd_code,
                 error_prev_pd_code=error_prev_pd_code
             )
@@ -255,24 +278,23 @@ class DatasetVisualizations(dspy.Module):
         print("pd_code", pd_code)
         
         print("self.main_dataset.df", self.main_dataset)
-        local_namespace = {'pd': pd, 'df': self.main_dataset.df, 'plt': plt}
-        extracted_df = self.execute_pandas_code(pd_code.pandas_code, local_namespace, 'extract_df')
-        print("extracted_df_list", extracted_df)
+        namespace_df = self.main_dataset.df
+        save_file_name = f"{visualization.visualization_type}_test.svg"
+        
+        local_namespace_pd_code = {'pd': pd, 'df': namespace_df, 'plt': plt, 'mplcursors': mplcursors, 'np': np, 'save_file_name': save_file_name, 'columns_involved': visualization.columns_involved}
+        
+        extracted_df = self.execute_pandas_code(pd_code.pandas_code, local_namespace_pd_code, 'extract_df')
+        namespace_df = extracted_df # Update the namespace df for the namespace dict
             
         enriched_extracted_columns = self.get_enriched_extracted_columns(extracted_df)
         print("enriched_extracted_columns", enriched_extracted_columns)
         # pd_viz_code = await asyncio.get_event_loop().run_in_executor(
         #     self.executor,
 
-        enriched_extracted_columns = self.get_enriched_extracted_columns(extracted_df)
-        print("enriched_extracted_columns", enriched_extracted_columns)
-        # pd_viz_code = await asyncio.get_event_loop().run_in_executor(
-        #     self.executor,
-        
         try_count = 0
         prev_pd_code = None
         error_prev_pd_code = None
-        save_file_name = f"{visualization.visualization_type}_test.svg"
+        
         while try_count < 5:
             try:
                 enriched_extracted_columns = self.get_enriched_extracted_columns(extracted_df)
@@ -285,20 +307,12 @@ class DatasetVisualizations(dspy.Module):
                     error_prev_pd_code
                 )
                 
-                print(self.clean_code(pd_viz_code.pandas_code))
-    
-                local_namespace = {'pd': pd, 'df': extracted_df, 'plt': plt, 'mplcursors': mplcursors, 'np': np, 'save_file_name': save_file_name}
-                
-                print("debugging pd_viz_code", self.clean_code(pd_viz_code.pandas_code))
-                
-                extracted_viz = self.execute_pandas_code(pd_viz_code.pandas_code, local_namespace, 'extract_viz')
+                extracted_viz = self.execute_pandas_code(pd_viz_code.pandas_code, local_namespace_pd_code, 'extract_viz')
                 
                 with open(save_file_name, "r") as f:
                     svg_content = f.read()
                 
                 svg_json = json.dumps({'svg': svg_content})
-                
-                print("extracted_viz", extracted_viz)
                 
                 assistant_message_body = AssistantMessageBody(
                     reason=visualization.reason,

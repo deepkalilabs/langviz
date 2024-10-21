@@ -3,6 +3,8 @@
 import React, { useState } from 'react';
 import SideBar from './components/SideBar';
 import ChatArea from './components/ChatArea';
+import { Sidebar, SidebarContent } from "@/components/ui/sidebar"
+
 
 const ChatPage: React.FC = () => {
   const [sidebarExpanded, setSidebarExpanded] = useState(true);
