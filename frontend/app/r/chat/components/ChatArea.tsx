@@ -60,6 +60,7 @@ const UploadFileS3 = async (file: File) => {
 
 const ChatArea: React.FC<ChatAreaProps> = ({ initialMessages, onDataReceived, onUploadComplete }) => {
   const [messages, setMessages] = useState<ChatMessage[]>(initialMessages);
+  const [message, setMessage] = useState<ChatMessage | null>(null);
   const [input, setInput] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const [apiData, setApiData] = useState<DataSetApiResponse | null>(null);
@@ -98,7 +99,8 @@ const ChatArea: React.FC<ChatAreaProps> = ({ initialMessages, onDataReceived, on
 
   useEffect(() => {
     if (replyToAssistantMessageIdx !== null) {
-      for (let i = messages.length - 1; i >= 0; i--) {
+      const msg_len = messages.length
+      for (let i = msg_len - 1; i >= 0; i--) {
         if (messages[i].chartData?.assistant_message_uuid === replyToAssistantMessageIdx) {
           setChartSelected(messages[i]?.chartData ?? null)
           setRefineVizName(messages[i]?.chartData?.viz_name ?? null)
@@ -109,7 +111,7 @@ const ChatArea: React.FC<ChatAreaProps> = ({ initialMessages, onDataReceived, on
       setChartSelected(null)
       setRefineVizName(null)
     }
-  }, [replyToAssistantMessageIdx, messages])
+  }, [replyToAssistantMessageIdx])
 
   const handleDataReceived = useCallback((originalData: OriginalDataSet, apiData: DataSetApiResponse) => {
     console.log('Papa parsed data:', originalData);
@@ -246,7 +248,7 @@ const ChatArea: React.FC<ChatAreaProps> = ({ initialMessages, onDataReceived, on
       {/* Chat messages */}
       <div className="flex-1 overflow-y-auto px-4 py-6" {...getRootProps()}>
         <div className="max-w-3xl mx-auto space-y-6">
-          {messages.map((message, index) => (
+          {messages.map((message: ChatMessage, index: number) => (
             <div key={index} className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}>
               {message.role === 'assistant' && !message.chartData?.svg_json && (
                 <div className="w-8 h-8 rounded-full bg-blue-500 flex items-center justify-center text-white font-bold mr-3">
@@ -259,9 +261,6 @@ const ChatArea: React.FC<ChatAreaProps> = ({ initialMessages, onDataReceived, on
                 {message.chartData?.svg_json ? (
                   <div className="flex flex-col justify-start">
                     <div className="flex items-start justify-start">
-                      {/* <div className="w-8 h-8 rounded-full bg-black-100 flex items-center justify-center text-white font-bold mr-3 flex-shrink-0">
-                        V
-                      </div> */}
                       <div>
                         <p className="text-md font-semibold mb-2 text-center">{message.chartData.viz_name.replace(/_/g, ' ').toUpperCase()}</p>
                         <br/>
@@ -271,6 +270,7 @@ const ChatArea: React.FC<ChatAreaProps> = ({ initialMessages, onDataReceived, on
                     <div className="mt-4 w-full">
                       <ChartContainer 
                         message={message} 
+                        setMessage={setMessage}
                         replyToAssistantMessageIdx={replyToAssistantMessageIdx} 
                         setReplyToAssistantMessageIdx={setReplyToAssistantMessageIdx} 
                       />
