@@ -13,8 +13,9 @@ class DatasetManager(Manager):
 
 class Dataset(models.Model):
     name = models.CharField(max_length=200, null=True, blank=True)
-    description = models.TextField()
-    uri = models.TextField()
+    description = models.TextField(null=True, blank=True)
+    publicUrl = models.TextField(null=True, blank=True)
+    s3Uri = models.TextField(null=True, blank=True)
     enriched_columns_properties = models.JSONField(null=True, blank=True)
     enriched_dataset_schema = models.JSONField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)

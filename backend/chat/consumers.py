@@ -31,7 +31,7 @@ class ServerMessage:
 
 @dataclass
 class DatasetInitiate:
-    uri: str
+    s3Uri: str
     name: str
     description: str
     user: UserModel
@@ -180,7 +180,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
             dataset_chat_model = self.chat_session.main_dataset
             
             self.enrich_dataset = DatasetHelper(
-                dataset_chat_model.uri,
+                dataset_chat_model.s3Uri,
                 enriched_columns_properties=dataset_chat_model.enriched_columns_properties,
                 enriched_dataset_schema=dataset_chat_model.enriched_dataset_schema,
                 save_to_db=False

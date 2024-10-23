@@ -10,6 +10,6 @@ docker builder prune -a -f
 
 docker compose logs -f
 
-Only run this if ur sure u wanna delete everything.
+# Only run this if ur sure u wanna delete everything.
 # docker system prune -a --volumes
 

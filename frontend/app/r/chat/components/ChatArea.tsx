@@ -8,7 +8,9 @@ import useWebSocket from 'react-use-websocket';
 import DataTable from '../../../component/DataTable';
 import ChartContainer from '../../../component/ChartContainer';
 import { DataSetApiResponse, OriginalDataSet, ChatProps, ChatMessage, ChartData } from '../../../component/types';
-
+import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
+import { Upload as S3Upload } from '@aws-sdk/lib-storage';
+import { v4 as uuidv4 } from 'uuid';
 
 interface ChatAreaProps {
   initialMessages: ChatMessage[];
@@ -22,6 +24,39 @@ interface ParsedData {
 }
 
 const URL = 'ws://0.0.0.0:8000/ws/chat/';
+
+const s3Client = new S3Client({
+  region: process.env.NEXT_PUBLIC_AWS_REGION || 'us-west-1',
+  credentials: {
+    accessKeyId: process.env.NEXT_PUBLIC_AWS_ACCESS_KEY_ID || '',
+    secretAccessKey: process.env.NEXT_PUBLIC_AWS_SECRET_ACCESS_KEY || '',
+  },
+});
+
+const UploadFileS3 = async (file: File) => {
+  // TODO: Remove after debugging is done
+  const fileExt = file.name.split('.')[1];
+  // const uniqueFilename = uuidv4() + '.' + fileExt;
+  const uniqueFilename = "62083a15-665e-4f82-922c-f7f9b63323bb.csv"
+  const s3Key = 'data_uploads/' + uniqueFilename;
+  const s3Uri = `s3://${process.env.NEXT_PUBLIC_AWS_BUCKET_NAME}/${s3Key}`;
+  // If you need a public URL instead:
+  const publicUrl = `https://${process.env.NEXT_PUBLIC_AWS_BUCKET_NAME}.s3.${process.env.NEXT_PUBLIC_AWS_REGION}.amazonaws.com/${s3Key}`;
+
+  const upload = new S3Upload({
+    client: s3Client,
+    params: {
+      Bucket: process.env.NEXT_PUBLIC_AWS_BUCKET_NAME,
+      Key: s3Key,
+      Body: file,
+      ContentType: file.type,
+    },
+  }); 
+
+  // await upload.done(); 
+
+  return { s3Uri, publicUrl };
+}
 
 const ChatArea: React.FC<ChatAreaProps> = ({ initialMessages, onDataReceived, onUploadComplete }) => {
   const [messages, setMessages] = useState<ChatMessage[]>(initialMessages);
@@ -125,10 +160,18 @@ const ChatArea: React.FC<ChatAreaProps> = ({ initialMessages, onDataReceived, on
 
   const uploadMutation = useMutation({
     mutationFn: async ({ file, data }: ParsedData) => {
+
+      const { s3Uri, publicUrl } = await UploadFileS3(file);
       const formData = new FormData();
       formData.append('name', file.name);
       formData.append('description', 'test');
-      formData.append('url', 'https://raw.githubusercontent.com/uwdata/draco/master/data/cars.csv');
+      formData.append('s3Uri', s3Uri);
+      formData.append('publicUrl', publicUrl);
+
+      setMessages(msgs => [...msgs, { 
+        role: 'assistant', 
+        content: `We're uploading and analyzing your CSV file. This might take a minute.`
+      }]);
 
       const response = await axios.post<DataSetApiResponse>(
         'http://localhost:8000/api/chat/chat-sessions/',
@@ -137,6 +180,7 @@ const ChatArea: React.FC<ChatAreaProps> = ({ initialMessages, onDataReceived, on
           headers: { 'Content-Type': 'multipart/form-data' },
         }
       );
+
       return { originalData: data, apiData: response.data };
     },
     onSuccess: ({ originalData, apiData }) => {

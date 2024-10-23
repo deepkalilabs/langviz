@@ -36,7 +36,7 @@ class Visualization(BaseModel):
 
 @dataclass
 class DatasetInitiate:
-    uri: str
+    s3Uri: str
     name: str
     description: str
     user: UserModel

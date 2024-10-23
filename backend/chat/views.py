@@ -25,17 +25,20 @@ from pprint import pprint
 
 def create_dataset_helper(request):
     name = request.data.get('name', '')
-    uri = request.data.get('url', '')
+    s3Uri = request.data.get('s3Uri', '')
+    publicUrl = request.data.get('publicUrl', '')
     description = request.data.get('description', '')
     
-    if not uri:
-        raise ValueError('uri is required')
+    print(s3Uri, publicUrl)
+    
+    if not publicUrl:
+        raise ValueError('publicUrl is required')
     
     try:
-        #TODO: Uncomment this.
-        enrich_schema = DatasetEnrich(uri).forward()
+        # TODO: Change to s3Uri
+        enrich_schema = DatasetEnrich(s3Uri).forward()
         
-        dataset = DatasetModel.objects.create(name=name, uri=uri, description=description, enriched_columns_properties=enrich_schema['enriched_column_properties'], enriched_dataset_schema=enrich_schema['enriched_dataset_schema'])
+        dataset = DatasetModel.objects.create(name=name, s3Uri=s3Uri, publicUrl=publicUrl, description=description, enriched_columns_properties=enrich_schema['enriched_column_properties'], enriched_dataset_schema=enrich_schema['enriched_dataset_schema'])
         
         # dataset = DatasetModel.objects.last()
         

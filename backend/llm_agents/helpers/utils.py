@@ -12,7 +12,9 @@ import tiktoken
 from diskcache import Cache
 import hashlib
 import io
-
+import boto3
+from smart_open import smart_open
+from urllib.parse import urlparse
 
 def get_dirs(path: str) -> List[str]:
     return next(os.walk(path))[1]
@@ -50,34 +52,36 @@ def read_dataframe(file_location: str, encoding: str = 'utf-8') -> pd.DataFrame:
     :return: A cleaned DataFrame.
     """
     file_extension = file_location.split('.')[-1]
-
-    read_funcs = {
-        'json': lambda: pd.read_json(file_location, orient='records', encoding=encoding),
-        'csv': lambda: pd.read_csv(file_location, encoding=encoding),
-        'xls': lambda: pd.read_excel(file_location, encoding=encoding),
-        'xlsx': lambda: pd.read_excel(file_location, encoding=encoding),
-        'parquet': pd.read_parquet,
-        'feather': pd.read_feather,
-        'tsv': lambda: pd.read_csv(file_location, sep="\t", encoding=encoding)
-    }
-
-    if file_extension not in read_funcs:
-        raise ValueError('Unsupported file type')
-
+    
     try:
-        df = read_funcs[file_extension]()
+        if file_location.startswith('s3://'):
+            # Configure S3 client
+            session = boto3.Session(
+                aws_access_key_id=os.environ.get('AWS_ACCESS_KEY_ID'),
+                aws_secret_access_key=os.environ.get('AWS_SECRET_ACCESS_KEY'),
+                region_name=os.environ.get('AWS_REGION')
+            )
+            
+            # Parse S3 URI
+            parsed_uri = urlparse(file_location)
+            bucket = parsed_uri.netloc
+            key = parsed_uri.path.lstrip('/')
+            
+            # Use session to read the file
+            s3 = session.client('s3')
+            obj = s3.get_object(Bucket=bucket, Key=key)
+            df = _read_file_by_extension(obj['Body'], file_extension)
+                
+        else:
+            # Handle local files
+            with open(file_location, 'rb') as f:
+                df = _read_file_by_extension(f, file_extension)
+    
     except Exception as e:
-        logger.error(f"Failed to read file: {file_location}. Error: {e}")
-        raise
-
+        raise Exception(f"Error reading file {file_location}: {str(e)}")
+    
     # Clean column names
     cleaned_df = clean_column_names(df)
-
-    # Sample down to 4500 rows if necessary
-    if len(cleaned_df) > 4500:
-        logger.info(
-            "Dataframe has more than 4500 rows. We will sample 4500 rows.")
-        cleaned_df = cleaned_df.sample(4500)
 
     if cleaned_df.columns.tolist() != df.columns.tolist():
         write_funcs = {
@@ -96,11 +100,29 @@ def read_dataframe(file_location: str, encoding: str = 'utf-8') -> pd.DataFrame:
         try:
             write_funcs[file_extension]()
         except Exception as e:
-            logger.error(f"Failed to write file: {file_location}. Error: {e}")
+            print(f"Failed to write file: {file_location}. Error: {e}")
             raise
 
     return cleaned_df
 
+def _read_file_by_extension(file_obj, file_extension: str) -> pd.DataFrame:
+    """
+    Helper function to read different file formats into a pandas DataFrame
+    """
+    if file_extension == 'csv':
+        return pd.read_csv(file_obj)
+    elif file_extension == 'json':
+        return pd.read_json(file_obj, orient='records')
+    elif file_extension in ['xls', 'xlsx']:
+        return pd.read_excel(file_obj)
+    elif file_extension == 'parquet':
+        return pd.read_parquet(file_obj)
+    elif file_extension == 'feather':
+        return pd.read_feather(file_obj)
+    elif file_extension == 'tsv':
+        return pd.read_csv(file_obj, sep="\t")
+    else:
+        raise ValueError(f'Unsupported file type: {file_extension}')
 
 def file_to_df(file_location: str):
     """ Get summary of data from file location """

@@ -208,7 +208,7 @@ class DatasetEnrich(dspy.Module):
         }
         
 if __name__ == "__main__":
-    csv_file_uri = "https://raw.githubusercontent.com/uwdata/draco/master/data/cars.csv"
+    csv_file_uri = "s3://llm-data-viz-agentkali/data_uploads/62083a15-665e-4f82-922c-f7f9b63323bb.csv"
     enrich = DatasetEnrich(csv_file_uri).forward()
     pprint(enrich)
     
