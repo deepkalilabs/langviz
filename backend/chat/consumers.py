@@ -130,7 +130,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
             
             print("visualization_objects", visualization_objects)
 
-            all_viz = set([viz.visualization_type for viz in visualization_objects.visualizations])
+            all_viz = set([viz.visualization_type for viz in visualization_objects])
             print("all_viz", all_viz)
 
             await self.send_ack(f"Refined visualization types: {all_viz}")
@@ -155,8 +155,8 @@ class ChatConsumer(AsyncWebsocketConsumer):
                 raise ValueError("Dataset visualization handler not initialized")
             
             visualization_objects = self.dataset_viz_handler.visualization_recommender_helper(user_message_body=message_body)
-
-            all_viz = set([viz.visualization_type for viz in visualization_objects.visualizations])
+            
+            all_viz = [viz.visualization_type for viz in visualization_objects]
             print("all_viz", all_viz)
 
             await self.send_ack(f"Generated visualization types: {all_viz}")
@@ -238,7 +238,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
         if self.dataset_viz_handler is None:
             raise ValueError("Dataset visualization handler not initialized")
         
-        for viz in visualization_objects.visualizations:
+        for viz in visualization_objects:
             try:
                 assistant_msg_body: AssistantMessageBody = await sync_to_async(self.dataset_viz_handler.generate_viz)(viz)
                 

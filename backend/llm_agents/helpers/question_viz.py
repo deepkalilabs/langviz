@@ -56,10 +56,19 @@ class AssistantMessageBody:
     pd_viz_code: str
     svg_json: str
     
+class QuestionRefiner(dspy.Signature):
+    """
+        Given the schema of the master dataset, the chat context, and a question, return a list of 2 refined questions (list[str]) that are more specific and informative. The refined question should lead to effective exploratory and descriptive data analysis and visualization. Only return a list of 2 questions (List[str]).
+    """
+    enriched_dataset_schema = dspy.InputField(desc="The enriched schema of the entire dataset.")
+    question = dspy.InputField(desc="The question to be refined.")
+    chat_context = dspy.InputField(desc="The chat context of the user & agent interactions previously.")
+    questions: list[str] = dspy.OutputField(format=list, desc="List of 2 refined questions that are more specific and informative.")
+    
 
 class VisualizationRecommender(dspy.Signature):
     """
-        Given the schema of the dataset and a question, return a list of 4 distinct well-thought visualization_types to help understand the question, the columns involved, and the reason for recommendation. Visualizations must be from the following list: [area_chart, line_chart, bar_chart, pie_chart, scatter_plot_chart, hexbin_chart]. The returned object should follow the Visualization class structure.
+        Given the schema of the dataset and a question, return a list of 2 distinct well-thought visualization_types to help understand the question, the columns involved, and the reason for recommendation. Visualizations must be from the following list: [area_chart, line_chart, bar_chart, pie_chart, scatter_plot_chart, hexbin_chart]. The returned object should follow the Visualization class structure.
         
         class Visualization(BaseModel):
             visualization_type: str
@@ -68,8 +77,8 @@ class VisualizationRecommender(dspy.Signature):
     """
     schema = dspy.InputField(desc="The schema of the dataset.")
     question = dspy.InputField(desc="The question to be answered.")
-    visualizations: list[Visualization] = dspy.OutputField(desc="List of dictionaries (List[Dict]) with visualizations, columns involved & reason for the visualization.")
-    
+    visualizations: list[Visualization] = dspy.OutputField(format=list, desc="List of dictionaries (List[Dict]) with visualizations, columns involved & reason for the visualization.")
+
 class VisualizationRefiner(dspy.Signature):
     """
         A user wants to refine context from an existing conversation. 
@@ -88,7 +97,7 @@ class VisualizationRefiner(dspy.Signature):
     
 class PandasTransformationCode(dspy.Signature):
     """
-        Given the schema of the master dataset, a type of visualization and its docs, and columns involved in the visualization, generate the pandas code to extract and tranform the data in dataframe df. Use the df variable from local namespace to extract the data. return the df in the fomrat that is compatible with the visualization docs. Do not change the column names.
+        Given the schema of the master dataset, a type of visualization and its docs, and columns involved in the visualization, generate the pandas code to extract, clean, and transform the data in dataframe df using best practices. Use the df variable from local namespace to extract the data. return the df in the fomrat that is compatible with the visualization docs. Do not change the column names.
     """
     enriched_dataset_schema = dspy.InputField(desc="The enriched schema of the entire dataset")
     visualization_type = dspy.InputField(desc="Type of visualization to be generated")
@@ -126,6 +135,7 @@ class DatasetVisualizations(dspy.Module):
         self.main_dataset = dataset
         self.viz_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'example_charts_pd')
 
+        self.question_refiner = dspy.ChainOfThought(QuestionRefiner)
         self.visualization_recommender = dspy.ChainOfThought(VisualizationRecommender)
         self.pandas_code_generator = dspy.ChainOfThought(PandasTransformationCode)
         self.pandas_visualization_code_generator = dspy.ChainOfThought(PandasVisualizationCode)
@@ -137,9 +147,16 @@ class DatasetVisualizations(dspy.Module):
     
     def visualization_recommender_helper(self, user_message_body: UserMessageBody):
         try:
+            visualization_list = []
             print("about to recommend visualization")
-            visualizations = self.visualization_recommender(schema=self.main_dataset.enriched_dataset_schema, question=user_message_body.question)
-            return visualizations
+            
+            refined_questions = self.question_refiner(enriched_dataset_schema=self.main_dataset.enriched_dataset_schema, chat_context=user_message_body.question, question=user_message_body.question)
+            
+            for question in refined_questions.questions:
+                print("new question", question)
+                visualizations = self.visualization_recommender(schema=self.main_dataset.enriched_dataset_schema, question=question)
+                visualization_list.extend(visualizations.visualizations)
+            return visualization_list
         except Exception as e:
             print("Skipping visualization recommendation because of error: ", e)
             
@@ -150,6 +167,7 @@ class DatasetVisualizations(dspy.Module):
             # TODO: Think if we need to do this for all messages in the chat session
             # TODO: Think if we need PD code here
             
+            visualization_list = []
             current_question = user_message.question
             prev_reason = assistant_message.reason
             prev_viz_name = assistant_message.viz_name
@@ -173,9 +191,12 @@ class DatasetVisualizations(dspy.Module):
                 chat_context = f"""
                     User's last questions: {last_x_questions}
                 """ + chat_context 
-                        
-            refined_visualizations = self.visualization_refiner(schema=self.main_dataset.enriched_dataset_schema, question=current_question, chat_context=chat_context)
-            return refined_visualizations
+
+            refined_questions = self.question_refiner(enriched_dataset_schema=self.main_dataset.enriched_dataset_schema, chat_context=chat_context, question=current_question)
+            for question in refined_questions.questions:
+                visualizations = self.visualization_recommender(schema=self.main_dataset.enriched_dataset_schema, question=question)
+                visualization_list.extend(visualizations.visualizations)
+            return visualization_list
         except Exception as e:
             print("Skipping visualization refinement because of error: ", e)
     
@@ -275,6 +296,7 @@ class DatasetVisualizations(dspy.Module):
             visualization.columns_involved,
             viz_docs
         )
+        
         print("pd_code", pd_code)
         
         print("self.main_dataset.df", self.main_dataset)
