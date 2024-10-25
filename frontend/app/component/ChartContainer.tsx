@@ -6,17 +6,16 @@ interface ChartContainerProps {
   message: ChatMessage;
   replyToAssistantMessageIdx: string | null;
   setReplyToAssistantMessageIdx: React.Dispatch<React.SetStateAction<string | null>>;
-  setMessage: React.Dispatch<React.SetStateAction<ChatMessage | null>>;
 }
 
-const SVGDisplay = (svgData: any) => {
+const SVGDisplay = React.memo((svgData: any) => {
   return (
     <div dangerouslySetInnerHTML={{ __html: svgData.svgData }} />
   );  
-};
+});
 
 
-const ChartContainer: React.FC<ChartContainerProps> = ({ message, setMessage, replyToAssistantMessageIdx, setReplyToAssistantMessageIdx }) => {
+const ChartContainer: React.FC<ChartContainerProps> = ({ message, replyToAssistantMessageIdx, setReplyToAssistantMessageIdx }) => {
   const [error, setError] = useState<string | null>(null);
 
   return (

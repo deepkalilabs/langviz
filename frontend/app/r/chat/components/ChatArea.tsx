@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect, useCallback } from 'react';
+import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { Send, Upload, Database, XIcon } from 'lucide-react';
 import { useDropzone } from 'react-dropzone';
 import axios from 'axios';
@@ -11,6 +11,7 @@ import { DataSetApiResponse, OriginalDataSet, ChatProps, ChatMessage, ChartData 
 import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
 import { Upload as S3Upload } from '@aws-sdk/lib-storage';
 import { v4 as uuidv4 } from 'uuid';
+import { throttle } from 'lodash'; // Add this import
 
 interface ChatAreaProps {
   initialMessages: ChatMessage[];
@@ -36,8 +37,7 @@ const s3Client = new S3Client({
 const UploadFileS3 = async (file: File) => {
   // TODO: Remove after debugging is done
   const fileExt = file.name.split('.')[1];
-  // const uniqueFilename = uuidv4() + '.' + fileExt;
-  const uniqueFilename = "62083a15-665e-4f82-922c-f7f9b63323bb.csv"
+  const uniqueFilename = uuidv4() + '.' + fileExt;
   const s3Key = 'data_uploads/' + uniqueFilename;
   const s3Uri = `s3://${process.env.NEXT_PUBLIC_AWS_BUCKET_NAME}/${s3Key}`;
   // If you need a public URL instead:
@@ -53,7 +53,7 @@ const UploadFileS3 = async (file: File) => {
     },
   }); 
 
-  // await upload.done(); 
+  await upload.done(); 
 
   return { s3Uri, publicUrl };
 }
@@ -75,8 +75,13 @@ const ChatArea: React.FC<ChatAreaProps> = ({ initialMessages, onDataReceived, on
   useEffect(() => {
     if (lastMessage !== null) {
       const message_received = JSON.parse(lastMessage.data);
+      if (!message_received) {
+        // const msg: ChatMessage = { role: 'assistant', content: "Error parsing message from server, could you please try again?" }
+        // setMessages(prev => [...prev, msg]);
+        return;
+      }
       console.log("message_received", lastMessage)
-      if (message_received.type === "viz_code") {
+      if (message_received?.type === "viz_code") {
         try {
           const chartData: ChartData = {
             reason: message_received.reason,
@@ -91,7 +96,7 @@ const ChatArea: React.FC<ChatAreaProps> = ({ initialMessages, onDataReceived, on
         } catch (error) {
           console.error('Error parsing WebSocket message:', error);
         }
-      } else if (message_received.type === "ack") {
+      } else if (message_received?.type === "ack") {
         setMessages(prev => [...prev, message_received]);
       }
     }
@@ -124,11 +129,17 @@ const ChatArea: React.FC<ChatAreaProps> = ({ initialMessages, onDataReceived, on
     setIsDataDrawerOpen(true);
   }, [isDataDrawerOpen]);
 
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  };
+  const throttledScrollToBottom = useCallback(
+    throttle(() => {
+      messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    }, 100),
+    []
+  );
 
-  useEffect(scrollToBottom, [messages]);
+  // Update useEffect to use throttled scroll function
+  useEffect(() => {
+    throttledScrollToBottom();
+  }, [messages, throttledScrollToBottom]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -243,49 +254,57 @@ const ChatArea: React.FC<ChatAreaProps> = ({ initialMessages, onDataReceived, on
     setIsDataDrawerOpen(!isDataDrawerOpen);
   };
 
+  const ChatMessageMemoized = useMemo(() => React.memo(({ message, key }: { message: ChatMessage, key: number }) => {
+    return (
+      <div key={key} className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+        {message.role === 'assistant' && !message.chartData?.svg_json && (
+          <div className="w-8 h-8 rounded-full bg-blue-500 flex items-center justify-center text-white font-bold mr-3">
+            A
+          </div>
+        )}
+        <div className={`max-w-full w-full rounded-lg p-2 flex ${
+          message.role === 'user' ? 'bg-blue-100 text-gray-800 justify-end items-end' : 'bg-gray-100 text-gray-600 justify-start items-start'
+        }`}>
+          {message.chartData?.svg_json ? (
+            <div className="flex flex-col justify-start">
+              <div className="flex items-start justify-start">
+                {/* <div className="w-8 h-8 rounded-full bg-black-100 flex items-center justify-center text-white font-bold mr-3 flex-shrink-0">
+                  V
+                </div> */}
+                <div>
+                  <p className="text-md font-semibold mb-2 text-center">{message.chartData.viz_name.replace(/_/g, ' ').toUpperCase()}</p>
+                  <br/>
+                  <p className="text-sm text-center">{message.chartData.reason}</p>
+                </div>
+              </div>
+              <div className="mt-4 w-full">
+                <ChartContainer 
+                  message={message} 
+                  replyToAssistantMessageIdx={replyToAssistantMessageIdx} 
+                  setReplyToAssistantMessageIdx={setReplyToAssistantMessageIdx} 
+                />
+              </div>
+            </div>
+          ) : (
+            <p>{message.content}</p>
+          )}
+        </div>
+        {message.role === 'user' && (
+          <div className="w-8 h-8 rounded-full bg-red-500 flex items-center justify-center text-white font-bold ml-3">
+            C
+          </div>
+        )}
+      </div>
+    )
+  }), []);
+
   return (
     <div className="flex flex-col h-full">
       {/* Chat messages */}
       <div className="flex-1 overflow-y-auto px-4 py-6" {...getRootProps()}>
         <div className="max-w-3xl mx-auto space-y-6">
-          {messages.map((message: ChatMessage, index: number) => (
-            <div key={index} className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-              {message.role === 'assistant' && !message.chartData?.svg_json && (
-                <div className="w-8 h-8 rounded-full bg-blue-500 flex items-center justify-center text-white font-bold mr-3">
-                  A
-                </div>
-              )}
-              <div className={`max-w-full w-full rounded-lg p-2 flex ${
-                message.role === 'user' ? 'bg-blue-100 text-gray-800 justify-end items-end' : 'bg-gray-100 text-gray-600 justify-start items-start'
-              }`}>
-                {message.chartData?.svg_json ? (
-                  <div className="flex flex-col justify-start">
-                    <div className="flex items-start justify-start">
-                      <div>
-                        <p className="text-md font-semibold mb-2 text-center">{message.chartData.viz_name.replace(/_/g, ' ').toUpperCase()}</p>
-                        <br/>
-                        <p className="text-sm text-center">{message.chartData.reason}</p>
-                      </div>
-                    </div>
-                    <div className="mt-4 w-full">
-                      <ChartContainer 
-                        message={message} 
-                        setMessage={setMessage}
-                        replyToAssistantMessageIdx={replyToAssistantMessageIdx} 
-                        setReplyToAssistantMessageIdx={setReplyToAssistantMessageIdx} 
-                      />
-                    </div>
-                  </div>
-                ) : (
-                  <p>{message.content}</p>
-                )}
-              </div>
-              {message.role === 'user' && (
-                <div className="w-8 h-8 rounded-full bg-red-500 flex items-center justify-center text-white font-bold ml-3">
-                  C
-                </div>
-              )}
-            </div>
+          {messages.map((message, key) => (
+            <ChatMessageMemoized message={message} key={key} />
           ))}
           <div ref={messagesEndRef} />
         </div>
@@ -324,14 +343,16 @@ const ChatArea: React.FC<ChatAreaProps> = ({ initialMessages, onDataReceived, on
               onClick={() => document.getElementById('file-upload')?.click()}
               className="p-3 text-blue-500 hover:text-blue-600 focus:outline-none"
             >
-              <Upload size={20} />
+            <Upload size={20} />
             </button>
+            
             <input
               id="file-upload"
               type="file"
               {...getInputProps()}
               className="hidden"
             />
+
             {originalData && (
               <button
                 type="button"
@@ -341,6 +362,7 @@ const ChatArea: React.FC<ChatAreaProps> = ({ initialMessages, onDataReceived, on
                 <Database size={20} />
               </button>
             )}
+            
             <button type="submit" className="p-3 text-blue-500 hover:text-blue-600 focus:outline-none">
               <Send size={20} />
             </button>
