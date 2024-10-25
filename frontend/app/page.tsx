@@ -1,15 +1,28 @@
 'use client'
-
 import React, { useState, useCallback } from 'react';
-import Image from "next/image";
+import { useSession } from 'next-auth/react'
+import { redirect } from 'next/navigation'
+import { signOut } from 'next-auth/react'
+
 import UploadCSV from "./component/UploadCSV";
 import RightBarSheet from "./component/RightBarSheet";
 import { DataSetApiResponse, OriginalDataSet } from './component/types'; 
 
 export default function Home() {
+  const { data: session, status } = useSession({
+    required: true,
+    onUnauthenticated() {
+      redirect('/auth/signin')
+    },
+  })
   const [apiData, setApiData] = useState<DataSetApiResponse | null>(null);
   const [originalData, setOriginalData] = useState<OriginalDataSet | null>(null);
   const [isRightBarOpen, setIsRightBarOpen] = useState(false);
+
+  if (status === 'loading') {
+    return <div>Loading...</div>
+  }
+
 
   const handleDataReceived = useCallback((originalData: OriginalDataSet, apiData: DataSetApiResponse) => {
     console.log('Papa parsed data:', originalData);

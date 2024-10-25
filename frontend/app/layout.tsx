@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import localFont from "next/font/local";
 import "./globals.css";
 import ClientProvider from "./ClientProvider";
-import Script from 'next/script';
+import { NextAuthProvider } from './providers'
 
 
 const geistSans = localFont({
@@ -30,17 +30,9 @@ export default function RootLayout({
     <html lang="en">
       <ClientProvider>
         <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
-          {children}
+          <NextAuthProvider>{children}</NextAuthProvider>
         </body>
       </ClientProvider>
-      <Script src="https://d3js.org/d3.v7.min.js" strategy="lazyOnload" />
-      <Script id="make-d3-global">
-        {`
-          if (typeof window.d3 === 'undefined') {
-            window.d3 = d3;
-          }
-        `}
-      </Script>
     </html>
   );
 }
