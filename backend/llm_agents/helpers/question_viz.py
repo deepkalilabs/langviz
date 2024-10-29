@@ -58,7 +58,8 @@ class AssistantMessageBody:
     
 class QuestionRefiner(dspy.Signature):
     """
-        Given the schema of the master dataset, the chat context, and a question, return a list of 2 refined questions (list[str]) that are more specific and informative. The refined question should lead to effective exploratory and descriptive data analysis and visualization. Only return a list of 2 questions (List[str]).
+        Given the schema of the master dataset, the chat context, and a question, return a list of 2 refined questions (list[str]) that are more specific and informative. The refined question should lead to effective exploratory and descriptive data analysis and visualization. Only return a list of 2 questions (List[str]). Output begins with [ and ends with ].
+        
     """
     enriched_dataset_schema = dspy.InputField(desc="The enriched schema of the entire dataset.")
     question = dspy.InputField(desc="The question to be refined.")
@@ -97,7 +98,13 @@ class VisualizationRefiner(dspy.Signature):
     
 class PandasTransformationCode(dspy.Signature):
     """
-        Given the schema of the master dataset, a type of visualization and its docs, and columns involved in the visualization, generate the pandas code to extract, clean, and transform the data in dataframe df using best practices. Use the df variable from local namespace to extract the data. return the df in the fomrat that is compatible with the visualization docs. Do not change the column names.
+        Given the schema of the master dataset, a type of visualization and its docs, and columns involved in the visualization, generate the pandas code to extract, clean, and transform the data in dataframe df using best practices. Follow the instructions strictly:
+        
+        1. Use the df variable from local namespace to extract the data. 
+        2. Return the df in the fomrat that is compatible with the visualization docs. 
+        3. Do not change the column names.
+        4. 'pd', 'df', 'plt', 'np', 'save_file_name' are in the local namespace.
+        5. Remove NaNs, Infs, Nulls, and other invalid values.
     """
     enriched_dataset_schema = dspy.InputField(desc="The enriched schema of the entire dataset")
     visualization_type = dspy.InputField(desc="Type of visualization to be generated")
@@ -113,7 +120,7 @@ class PandasVisualizationCode(dspy.Signature):
         Given a visualization type, details of columns involved in the visualization, and sample docs for pandas code to generate this visualization, return well-thought and clean pandas code to generate this visualization using best practices. Please follow the following instructions strictly:
         
         1. This visualization should be saved as an svg using the save_file_name.
-        2. Use best practices to generate the visualization code for pandas.
+        2. Use best practices to generate the visualization code for pandas. Always include labels and legends.
         3. If the previous pandas code has an error, use the error_prev_pd_code and prev_pd_code to fix and rewrite the correct version of the pandas code.
         4. If the solution requires a single value (e.g. max, min, median, first, last etc), ALWAYS add a line (axvline or axhline) to the chart, ALWAYS with a legend containing the single value (formatted with 0.2F).
         5. 'pd', 'df', 'plt', 'np', 'save_file_name' are in the local namespace.
@@ -203,16 +210,17 @@ class DatasetVisualizations(dspy.Module):
     
     def pandas_code_generator_helper(self, enriched_dataset_schema, visualization_type, columns_involved, viz_docs):
         PANDAS_TRANSFORMATION_TEMPLATE_CODE = """
-            import pandas as pd
-            import numpy as np
-            import os
-            import csv
-            <other imports here>
-            def extract_data(df, columns_involved):
-                <insert code here>
-                return extracted_df
-                
-            extract_df = extract_data(df, columns_involved) # No code beyond this line.
+        import pandas as pd
+        import numpy as np
+        import os
+        import csv
+        # <other imports here>
+        
+        def extract_data(df, columns_involved):
+            # <insert code here>
+            return extracted_df
+            
+        extract_df = extract_data(df, columns_involved) # No code beyond this line.
         """
 
         try:
@@ -230,19 +238,19 @@ class DatasetVisualizations(dspy.Module):
             
     def pandas_visualization_code_generator_helper(self, visualization_type, enriched_column_properties, visualization_docs, prev_pd_code, error_prev_pd_code):
         PANDAS_VISUALIZATION_TEMPLATE_CODE = """
-            import pandas as pd
-            import numpy as np
-            import os
-            import csv
-            
-            <other imports here>
-            
-            figsize=(6, 4) # Charts should always be of size 6x4.
-            
-            <insert code here>
-            
-            plt.savefig(save_file_name, format='svg')
-            plt.close()
+        import pandas as pd
+        import numpy as np
+        import os
+        import csv
+        
+        # <other imports here>
+        
+        figsize=(6, 4) # Charts should always be of size 6x4.
+        
+        # <insert code here>
+        
+        plt.savefig(save_file_name, format='svg')
+        plt.close()
         """
         try:
             pandas_code = self.pandas_visualization_code_generator(
