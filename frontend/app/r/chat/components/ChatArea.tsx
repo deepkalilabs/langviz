@@ -7,6 +7,7 @@ import Papa from 'papaparse';
 import useWebSocket from 'react-use-websocket';
 import DataTable from '../../../component/DataTable';
 import ChartContainer from '../../../component/ChartContainer';
+import { DataDrawer } from '../../../component/DataDrawer';
 import { DataSetApiResponse, OriginalDataSet, ChatProps, ChatMessage, ChartData } from '../../../component/types';
 import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
 import { Upload as S3Upload } from '@aws-sdk/lib-storage';
@@ -370,32 +371,15 @@ const ChatArea: React.FC<ChatAreaProps> = ({ initialMessages, onDataReceived, on
         </form>
       </div>
       {uploadMutation.isPending && <p className="text-center">Uploading...</p>}
-
-      {/* Data Drawer */}
+      
       {isDataDrawerOpen && originalData && apiData && (
-        <div className="fixed inset-y-0 right-0 w-1/2 bg-white shadow-lg transition-transform duration-300 ease-in-out overflow-hidden">
-          <div className="h-full flex flex-col">
-            <div className="p-4 border-b flex flex-col items-center">
-              <h2 className="text-xl font-semibold">CSV Data Preview</h2>
-              <p className="text-sm text-gray-500 mb-4">
-                Showing your uploaded CSV data.
-              </p>
-            </div>
-            <div className="flex-grow overflow-auto">
-              <DataTable dataResponse={apiData} originalData={originalData} />
-            </div>
-            <div className="p-4 border-t">
-              <p className="text-sm text-gray-500">
-                Showing {originalData.data.length} rows.
-              </p>
-              <button 
-                onClick={toggleDataDrawer}
-                className="mt-2 px-4 py-2 bg-gray-200 text-gray-800 rounded hover:bg-gray-300 transition-colors"
-              >
-                Close
-              </button>
-            </div>
-          </div>
+        <div className="p-4">
+          <DataDrawer
+            isOpen={isDataDrawerOpen}
+            onClose={() => setIsDataDrawerOpen(false)}
+            originalData={originalData}
+            apiData={apiData}
+          />
         </div>
       )}
     </div>
