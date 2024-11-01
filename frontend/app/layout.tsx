@@ -33,14 +33,14 @@ export default function RootLayout({
           {children}
         </body>
       </ClientProvider>
-      <Script src="https://d3js.org/d3.v7.min.js" strategy="lazyOnload" />
-      <Script id="make-d3-global">
+      {/* <Script src="https://d3js.org/d3.v7.min.js" strategy="lazyOnload" /> */}
+      {/* <Script id="make-d3-global">
         {`
           if (typeof window.d3 === 'undefined') {
             window.d3 = d3;
           }
         `}
-      </Script>
+      </Script> */}
     </html>
   );
 }

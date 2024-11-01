@@ -2,6 +2,8 @@ import React, { useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { ChatMessage, ChartData } from './types/local';
 import { useState } from 'react';
+import { DataDrawer } from './DataDrawer';
+
 interface ChartContainerProps {
   message: ChatMessage;
   replyToAssistantMessageIdx: string | null;
@@ -17,6 +19,14 @@ const SVGDisplay = React.memo((svgData: any) => {
 
 const ChartContainer: React.FC<ChartContainerProps> = ({ message, replyToAssistantMessageIdx, setReplyToAssistantMessageIdx }) => {
   const [error, setError] = useState<string | null>(null);
+  const [showDataDrawer, setShowDataDrawer] = useState<boolean>(false);
+  const toggleDataDrawer = () => setShowDataDrawer(!showDataDrawer);
+
+  useEffect(() => {
+    console.log("showDataDrawer", showDataDrawer);
+  }, [showDataDrawer]);
+
+  console.log("message.chartData", message);
 
   return (
     <div className="w-full h-full p-6 border border-white-300 rounded-lg">
@@ -33,12 +43,31 @@ const ChartContainer: React.FC<ChartContainerProps> = ({ message, replyToAssista
                 ""
               }
             </div>
-            <div className="flex justify-center items-center">
+            <div className="flex justify-center items-center gap-4">
+              <Button onClick={toggleDataDrawer}>
+                Show Data
+              </Button>
+
               <Button onClick={() => {
                 setReplyToAssistantMessageIdx(message.chartData?.assistant_message_uuid ?? null)
               }}>
                 Refine
               </Button>
+
+              <Button disabled onClick={() => {
+                console.log("will do analysis soon");
+              }}>
+                Analyze Chart
+              </Button>
+
+              {showDataDrawer && message?.chartData && (
+                <DataDrawer 
+                  isOpen={showDataDrawer} 
+                  onClose={toggleDataDrawer} 
+                  chartData={message.chartData} 
+                  originalData={null} 
+                />
+              )}
             </div>
           </div>
         ) : ""

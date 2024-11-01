@@ -49,6 +49,7 @@ class AssistantMessageBody:
     pd_code: str
     pd_viz_code: str
     svg_json: str
+    data: List[dict]
     
 class ChatConsumer(AsyncWebsocketConsumer):
     def __init__(self, *args, **kwargs):

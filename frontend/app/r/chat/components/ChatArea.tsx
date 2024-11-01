@@ -90,6 +90,7 @@ const ChatArea: React.FC<ChatAreaProps> = ({ initialMessages, onDataReceived, on
             pd_code: message_received.pd_code,
             pd_viz_code: message_received.pd_viz_code,
             svg_json: message_received.svg_json,
+            data: message_received.data,
             assistant_message_uuid: message_received.assistant_message_uuid
           }
           const msg: ChatMessage = { role: 'assistant', content: message_received.viz_name, type: message_received.type, chartData: chartData }
@@ -371,14 +372,14 @@ const ChatArea: React.FC<ChatAreaProps> = ({ initialMessages, onDataReceived, on
         </form>
       </div>
       {uploadMutation.isPending && <p className="text-center">Uploading...</p>}
-      
+
       {isDataDrawerOpen && originalData && apiData && (
         <div className="p-4">
           <DataDrawer
             isOpen={isDataDrawerOpen}
             onClose={() => setIsDataDrawerOpen(false)}
+            chartData={null}
             originalData={originalData}
-            apiData={apiData}
           />
         </div>
       )}

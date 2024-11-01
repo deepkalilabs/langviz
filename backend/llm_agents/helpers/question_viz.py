@@ -55,6 +55,7 @@ class AssistantMessageBody:
     pd_code: str
     pd_viz_code: str
     svg_json: str
+    data: List[dict]
     
 class QuestionRefiner(dspy.Signature):
     """
@@ -350,7 +351,8 @@ class DatasetVisualizations(dspy.Module):
                     columns_involved=visualization.columns_involved,
                     pd_code=pd_code.pandas_code,
                     pd_viz_code=pd_viz_code.pandas_code,
-                    svg_json=svg_json
+                    svg_json=svg_json,
+                    data=extracted_df.to_dict(orient='records')
                 )
                 
                 return assistant_message_body
