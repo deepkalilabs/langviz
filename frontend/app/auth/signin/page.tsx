@@ -1,5 +1,4 @@
 'use client';
-
 import { signIn } from "next-auth/react"
 import { useSearchParams } from 'next/navigation'
 
@@ -7,7 +6,6 @@ export default function SignIn() {
   const searchParams = useSearchParams()
   const error = searchParams.get('error')
 
-  
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
@@ -23,7 +21,7 @@ export default function SignIn() {
           )}
         </div>
         <button
-          onClick={() => signIn('google', { callbackUrl: '/' })}
+          onClick={() => signIn('google', { callbackUrl: '/r/chat' })}
           className="w-full flex items-center justify-center gap-3 bg-white px-4 py-3 text-gray-700 rounded-lg border hover:bg-gray-50 transition-all"
         >
           <svg viewBox="0 0 24 24" className="h-6 w-6">

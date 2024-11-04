@@ -14,8 +14,8 @@ export default function ErrorPage() {
   // Add direct environment variable checking
   const checkEnvVariables = () => {
     return {
-      clientId: !!process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID,
-      clientSecret: !!process.env.NEXT_PUBLIC_GOOGLE_CLIENT_SECRET,
+      clientId: !!process.env.GOOGLE_CLIENT_ID,
+      clientSecret: !!process.env.GOOGLE_CLIENT_SECRET,
       //nextAuthUrl: process.env.NEXTAUTH_URL,
       //hasSecret: !!process.env.NEXTAUTH_SECRET,
     };

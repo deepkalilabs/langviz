@@ -1,13 +1,30 @@
 'use client'
 
 import React, { useState } from 'react';
+import { useSession } from 'next-auth/react';
+import { redirect } from 'next/navigation';
 import SideBar from './components/SideBar';
 import ChatArea from './components/ChatArea';
-import { Sidebar, SidebarContent } from "@/components/ui/sidebar"
+
 
 
 const ChatPage: React.FC = () => {
+  const { data: session, status } = useSession({
+    required: true,
+    onUnauthenticated() {
+      redirect('/auth/signin')
+    },
+  })
   const [sidebarExpanded, setSidebarExpanded] = useState(true);
+
+  //Loading state
+  if (status === 'loading') {
+    return <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
+      <div className="max-w-md w-full space-y-8">
+        <div>Loading...</div>
+      </div>
+    </div>
+  }
 
   return (
     <div className="flex h-screen overflow-hidden">
