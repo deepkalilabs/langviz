@@ -1,12 +1,13 @@
+import uuid
 from django.shortcuts import render
 from rest_framework import status
 from rest_framework.views import APIView
 from rest_framework.response import Response
-from rest_framework_simplejwt.views import RefreshToken
+from rest_framework.authtoken.models import Token
 from django.contrib.auth import authenticate, get_user_model
 from django.core.mail import send_mail
 from django.conf import settings
-from .serializers import SignupSerializer
+from .serializers import LoginSerializer, SignupSerializer
 
 User = get_user_model()
 
@@ -15,31 +16,56 @@ class SignupView(APIView):
         serializer = SignupSerializer(data=request.data)
 
         if serializer.is_valid():
+            email = serializer.validated_data['email']
+            
+            # First check if email exists
+            if User.objects.filter(email=email).exists():
+                return Response({
+                    'error': 'Email already exists',
+                    'field': 'email'
+                }, status=status.HTTP_400_BAD_REQUEST)
+
+            # Extract username from email
+            base_email_name = email.split('@')[0]
+            email_domain = email.split('@')[1]
+            username = base_email_name
+            
+            # Make username unique if needed
+            counter = 1
+            while User.objects.filter(username=username).exists():
+                username = f"{base_email_name}{counter}"
+                counter += 1
+
+            # Update the validated data with unique username
+            serializer.validated_data['username'] = username
+            
             user = serializer.save()
-
+            
             # Send verification email
-            verification_link = f"{settings.FRONTEND_URL}/verify-email?token={user.verification_token}"
-            send_mail(
-                'Verify your email',
-                f'Click the link to verify your email: {verification_link}',
-                settings.EMAIL_HOST_USER,
-                [user.email],
-                settings.DEFAULT_FROM_EMAIL,
-                fail_silently=False,
-            )
+            try:
+                verification_link = f"{settings.FRONTEND_URL}/verify-email?token={user.verification_token}"
+                send_mail(
+                    'Verify your email',
+                    f'Click the link to verify your email: {verification_link}',
+                    settings.EMAIL_HOST_USER,
+                    [user.email],
+                    fail_silently=True,
+                )
+            except Exception as e:
+                print(f"Failed to send email: {e}")
 
-            refresh = RefreshToken.for_user(user)
+            token = Token.objects.create(user=user)
 
             return Response({
                 'user': {
                     'id': user.id,
                     'email': user.email,
+                    'username': user.username,
                     'is_verified': user.is_verified,
                     'is_google_account': user.is_google_account,
                 },
+                'token': str(token),
                 'message': 'User created successfully. Please check your email for verification.',
-                'refresh_token': str(refresh),
-                'access_token': str(refresh.access_token),
             }, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
     
@@ -62,7 +88,7 @@ class LoginView(APIView):
                 }, status=status.HTTP_404_NOT_FOUND)
             
             if user:
-                refresh = RefreshToken.for_user(user)
+                token = Token.objects.create(user=user)
                 return Response({
                     'user': {
                         'id': user.id,
@@ -71,8 +97,8 @@ class LoginView(APIView):
                         'is_google_account': user.is_google_account,
                     },
                     'token': {  
-                        'refresh_token': str(refresh),
-                        'access_token': str(refresh.access_token),
+                        'refresh_token': '',
+                        'access_token': str(token),
                     },
                     'detail': 'Login successful.'
                 }, status=status.HTTP_200_OK)

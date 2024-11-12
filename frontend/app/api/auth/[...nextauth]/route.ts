@@ -50,7 +50,7 @@ const handler = NextAuth({
           console.error("Error authorizing user", error)
           return null
         }
-      }
+      },
     })
   ],
   callbacks: {
