@@ -3,6 +3,7 @@ import { Button } from '@/components/ui/button';
 import { ChatMessage, ChartData } from './types/local';
 import { useState } from 'react';
 import { DataDrawer } from './DataDrawer';
+import ReactMarkdown from 'react-markdown';
 
 interface ChartContainerProps {
   message: ChatMessage;
@@ -44,30 +45,29 @@ const ChartContainer: React.FC<ChartContainerProps> = ({ message, setMsgRequeste
                 ""
               }
             </div>
-            {!message?.analysis && 
-              <div className="flex justify-center items-center gap-4">
-                <Button onClick={toggleDataDrawer}>
-                  Show Data
-                </Button>
 
-                <Button onClick={() => {
-                  setReplyToAssistantMessageIdx(message.chartData?.assistant_message_uuid ?? null)
-                  setMsgRequestedType("refine_visualizations")
-                }}>
-                  Refine
-                </Button>
+            <div className="flex justify-center items-center gap-4">
+              <Button onClick={toggleDataDrawer}>
+                Show Data
+              </Button>
 
-                <Button onClick={() => {
-                  setReplyToAssistantMessageIdx(message.chartData?.assistant_message_uuid ?? null)
-                  setMsgRequestedType("analyze_visualization")
-                  handleAnalyzeVisualization()
-                }}>
-                  Analyze Chart
-                </Button>
-              </div>
-            }
+              <Button onClick={() => {
+                setReplyToAssistantMessageIdx(message.chartData?.assistant_message_uuid ?? null)
+                setMsgRequestedType("refine_visualizations")
+              }}>
+                Refine
+              </Button>
 
-            {showDataDrawer && message?.chartData && (
+              <Button onClick={() => {
+                setReplyToAssistantMessageIdx(message.chartData?.assistant_message_uuid ?? null)
+                setMsgRequestedType("analyze_visualization")
+                handleAnalyzeVisualization()
+              }}>
+                Analyze Chart
+              </Button>
+            </div>
+
+            {showDataDrawer && message?.chartData?.data && (
                 <DataDrawer 
                   isOpen={showDataDrawer} 
                   onClose={toggleDataDrawer} 

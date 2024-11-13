@@ -15,6 +15,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { throttle } from 'lodash'; // Add this import
 import { debug } from 'console';
 import ReactMarkdown from 'react-markdown';
+import AnalyzeChartContainer from '../../../component/AnalyzeChartContainer';
 
 interface ChatAreaProps {
   initialMessages: ChatMessage[];
@@ -312,13 +313,13 @@ const ChatArea: React.FC<ChatAreaProps> = ({ initialMessages, onDataReceived, on
                 <div>
                   <p className="text-md font-semibold mb-2 text-center">{message.chartData.viz_name.replace(/_/g, ' ').toUpperCase()}</p>
                   <br/>
-                  {
-                    message.analysis ?
-                    <ReactMarkdown className="prose text-sm text-center">
-                      {message.analysis || ''}
-                    </ReactMarkdown> :
-                    <p className="text-sm text-center">{message.chartData.reason}</p>
-                  }
+                  <div className="px-4 py-2 prose dark:prose-invert max-w-none">
+                    {message.analysis ? (
+                      <ReactMarkdown>{message.analysis}</ReactMarkdown>
+                    ) : (
+                      <p>{message.chartData.reason}</p>
+                    )}
+                  </div>
                 </div>
               </div>
               <div className="mt-4 w-full">
