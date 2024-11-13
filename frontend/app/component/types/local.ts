@@ -33,6 +33,7 @@ interface ChatMessage {
   type?: string;
   content: string;
   chartData?: ChartData;
+  analysis?: string;
 }
 
 interface PandasSvgViz {

@@ -6,8 +6,9 @@ import { DataDrawer } from './DataDrawer';
 
 interface ChartContainerProps {
   message: ChatMessage;
-  replyToAssistantMessageIdx: string | null;
+  setMsgRequestedType: React.Dispatch<React.SetStateAction<string | null>>;
   setReplyToAssistantMessageIdx: React.Dispatch<React.SetStateAction<string | null>>;
+  handleAnalyzeVisualization: () => void;
 }
 
 const SVGDisplay = React.memo((svgData: any) => {
@@ -17,7 +18,7 @@ const SVGDisplay = React.memo((svgData: any) => {
 });
 
 
-const ChartContainer: React.FC<ChartContainerProps> = ({ message, replyToAssistantMessageIdx, setReplyToAssistantMessageIdx }) => {
+const ChartContainer: React.FC<ChartContainerProps> = ({ message, setMsgRequestedType, setReplyToAssistantMessageIdx, handleAnalyzeVisualization }) => {
   const [error, setError] = useState<string | null>(null);
   const [showDataDrawer, setShowDataDrawer] = useState<boolean>(false);
   const toggleDataDrawer = () => setShowDataDrawer(!showDataDrawer);
@@ -43,24 +44,30 @@ const ChartContainer: React.FC<ChartContainerProps> = ({ message, replyToAssista
                 ""
               }
             </div>
-            <div className="flex justify-center items-center gap-4">
-              <Button onClick={toggleDataDrawer}>
-                Show Data
-              </Button>
+            {!message?.analysis && 
+              <div className="flex justify-center items-center gap-4">
+                <Button onClick={toggleDataDrawer}>
+                  Show Data
+                </Button>
 
-              <Button onClick={() => {
-                setReplyToAssistantMessageIdx(message.chartData?.assistant_message_uuid ?? null)
-              }}>
-                Refine
-              </Button>
+                <Button onClick={() => {
+                  setReplyToAssistantMessageIdx(message.chartData?.assistant_message_uuid ?? null)
+                  setMsgRequestedType("refine_visualizations")
+                }}>
+                  Refine
+                </Button>
 
-              <Button disabled onClick={() => {
-                console.log("will do analysis soon");
-              }}>
-                Analyze Chart
-              </Button>
+                <Button onClick={() => {
+                  setReplyToAssistantMessageIdx(message.chartData?.assistant_message_uuid ?? null)
+                  setMsgRequestedType("analyze_visualization")
+                  handleAnalyzeVisualization()
+                }}>
+                  Analyze Chart
+                </Button>
+              </div>
+            }
 
-              {showDataDrawer && message?.chartData && (
+            {showDataDrawer && message?.chartData && (
                 <DataDrawer 
                   isOpen={showDataDrawer} 
                   onClose={toggleDataDrawer} 
@@ -68,7 +75,6 @@ const ChartContainer: React.FC<ChartContainerProps> = ({ message, replyToAssista
                   originalData={null} 
                 />
               )}
-            </div>
           </div>
         ) : ""
       }

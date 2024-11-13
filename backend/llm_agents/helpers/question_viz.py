@@ -22,6 +22,9 @@ import numpy as np
 from chat.models import User as UserModel
 import uuid
 from typing import Optional
+from cairosvg import svg2png
+import base64
+from io import BytesIO
 
 N = 9
 openai_lm = dspy.LM('openai/gpt-4o-mini', api_key=os.environ.get('OPENAI_API_KEY'), temperature=0.001*N)
@@ -56,6 +59,7 @@ class AssistantMessageBody:
     pd_viz_code: str
     svg_json: str
     data: List[dict]
+    extra_attrs: dict
     
 class QuestionRefiner(dspy.Signature):
     """
@@ -137,6 +141,79 @@ class PandasVisualizationCode(dspy.Signature):
     error_prev_pd_code = dspy.InputField(desc="Error in the previous pandas code.")
     pandas_code = dspy.OutputField(desc="Python code using Pandas to generate the visualization using the visualization docs as reference. Return variable name should be extract_viz.")
     
+class VisualizationAnalyzer():
+    """
+        Given a visualization PNG, the columns involved in the visualization, and the reason for the visualization, return a detailed analysis of the visualization.
+    """
+    # ... existing imports ...
+from openai import OpenAI
+import base64
+from io import BytesIO
+
+# Add after other class definitions
+class VisualizationAnalyzer:
+    """
+    Given a visualization PNG, the columns involved in the visualization, and the reason for the visualization, 
+    return a detailed analysis of the visualization.
+    """
+    def __init__(self):
+        self.client = OpenAI(api_key=os.environ.get('OPENAI_API_KEY'))
+        
+    def analyze(self, png_base64: str, enriched_column_properties: List[dict], reason: str) -> str:
+        """
+        Analyze a visualization using OpenAI's vision model.
+        
+        Args:
+            png_base64: PNG base64 data
+            columns_involved: List of column names used in visualization
+            reason: Reason for creating this visualization
+        
+        Returns:
+            str: Analysis of the visualization
+        """
+        try:
+            if not png_base64:
+                return "Error: No image data found"
+
+            # Construct the prompt
+            prompt = f"""You are an expert data analyst. Analyze this visualization:
+            - Details of columns: {enriched_column_properties}
+            - Purpose: {reason}
+            
+            Please provide:
+            1. A clear description of what the visualization shows
+            2. Key patterns or trends and potential reasons for them.
+            3. Any notable outliers or interesting points
+            """
+
+            # Call OpenAI Vision API
+            response = self.client.chat.completions.create(
+                model="gpt-4o-mini",
+                messages=[
+                    {
+                        "role": "user",
+                        "content": [
+                            {
+                                "type": "text",
+                                "text": prompt
+                            },
+                            {
+                                "type": "image_url",
+                                "image_url": {
+                                    "url": f"data:image/png;base64,{png_base64}"
+                                }
+                            }
+                        ]
+                    }
+                ],
+                max_tokens=500
+            )
+            
+            return response.choices[0].message.content
+
+        except Exception as e:
+            return f"Error analyzing visualization: {str(e)}"
+    
 
 class DatasetVisualizations(dspy.Module):
     def __init__(self, dataset, question: str) -> None:
@@ -207,7 +284,20 @@ class DatasetVisualizations(dspy.Module):
             return visualization_list
         except Exception as e:
             print("Skipping visualization refinement because of error: ", e)
-    
+            
+            
+    def analyze_visualization(self, assistant_message: AssistantMessageBody):
+        analyzer = VisualizationAnalyzer()
+        enriched_column_properties = self.get_enriched_extracted_columns(assistant_message.columns_involved)
+        png_base64 = json.loads(assistant_message.svg_json).get('png_base64')
+        
+        analysis = analyzer.analyze(
+            png_base64=png_base64,
+            enriched_column_properties=enriched_column_properties,
+            reason=assistant_message.reason
+        )
+        
+        return analysis
     
     def pandas_code_generator_helper(self, enriched_dataset_schema, visualization_type, columns_involved, viz_docs):
         PANDAS_TRANSFORMATION_TEMPLATE_CODE = """
@@ -281,8 +371,8 @@ class DatasetVisualizations(dspy.Module):
         return local_namespace.get(return_var_name)
     
         
-    def get_enriched_extracted_columns(self, extracted_df):
-        extracted_df_set = set(extracted_df.columns.to_list())
+    def get_enriched_extracted_columns(self, extracted_df_columns):
+        extracted_df_set = set(extracted_df_columns)
         enriched_extracted_columns = []
         for column_details in self.main_dataset.enriched_column_properties:
             if column_details.get('column_name', '') in extracted_df_set:
@@ -317,10 +407,8 @@ class DatasetVisualizations(dspy.Module):
         extracted_df = self.execute_pandas_code(pd_code.pandas_code, local_namespace_pd_code, 'extract_df')
         namespace_df = extracted_df # Update the namespace df for the namespace dict
             
-        enriched_extracted_columns = self.get_enriched_extracted_columns(extracted_df)
+        enriched_extracted_columns = self.get_enriched_extracted_columns(extracted_df.columns.to_list())
         print("enriched_extracted_columns", enriched_extracted_columns)
-        # pd_viz_code = await asyncio.get_event_loop().run_in_executor(
-        #     self.executor,
 
         try_count = 0
         prev_pd_code = None
@@ -328,8 +416,8 @@ class DatasetVisualizations(dspy.Module):
         
         while try_count < 5:
             try:
-                enriched_extracted_columns = self.get_enriched_extracted_columns(extracted_df)
-                print("enriched_extracted_columns", enriched_extracted_columns)
+                enriched_extracted_columns = self.get_enriched_extracted_columns(extracted_df.columns.to_list())
+                
                 pd_viz_code = self.pandas_visualization_code_generator_helper(
                     visualization.visualization_type,
                     enriched_extracted_columns,
@@ -343,7 +431,14 @@ class DatasetVisualizations(dspy.Module):
                 with open(save_file_name, "r") as f:
                     svg_content = f.read()
                 
-                svg_json = json.dumps({'svg': svg_content})
+                # Convert SVG to PNG
+                png_bytes = svg2png(bytestring=svg_content.encode('utf-8'))
+                png_base64 = base64.b64encode(png_bytes).decode('utf-8')
+                
+                svg_json = json.dumps({
+                    'svg': svg_content,
+                    'png_base64': png_base64
+                })
                 
                 assistant_message_body = AssistantMessageBody(
                     reason=visualization.reason,
@@ -352,7 +447,8 @@ class DatasetVisualizations(dspy.Module):
                     pd_code=pd_code.pandas_code,
                     pd_viz_code=pd_viz_code.pandas_code,
                     svg_json=svg_json,
-                    data=extracted_df.to_dict(orient='records')
+                    data=extracted_df.to_dict(orient='records'),
+                    extra_attrs={}
                 )
                 
                 return assistant_message_body

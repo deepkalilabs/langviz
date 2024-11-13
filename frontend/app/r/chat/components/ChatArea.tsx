@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useRef, useEffect, useCallback, useMemo, use } from 'react';
 import { Send, Upload, Database, XIcon } from 'lucide-react';
 import { useDropzone } from 'react-dropzone';
 import axios from 'axios';
@@ -13,6 +13,8 @@ import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
 import { Upload as S3Upload } from '@aws-sdk/lib-storage';
 import { v4 as uuidv4 } from 'uuid';
 import { throttle } from 'lodash'; // Add this import
+import { debug } from 'console';
+import ReactMarkdown from 'react-markdown';
 
 interface ChatAreaProps {
   initialMessages: ChatMessage[];
@@ -68,6 +70,7 @@ const ChatArea: React.FC<ChatAreaProps> = ({ initialMessages, onDataReceived, on
   const [originalData, setOriginalData] = useState<OriginalDataSet | null>(null);
   const [isDataDrawerOpen, setIsDataDrawerOpen] = useState(false);
   const [replyToAssistantMessageIdx, setReplyToAssistantMessageIdx] = useState<string | null>(null);
+  const [msgRequestedType, setMsgRequestedType] = useState<string | null>(null);
   const [chartSelected, setChartSelected] = useState<ChartData | null>(null);
   const [refineVizName, setRefineVizName] = useState<string | null>(null);
 
@@ -77,12 +80,12 @@ const ChatArea: React.FC<ChatAreaProps> = ({ initialMessages, onDataReceived, on
     if (lastMessage !== null) {
       const message_received = JSON.parse(lastMessage.data);
       if (!message_received) {
-        // const msg: ChatMessage = { role: 'assistant', content: "Error parsing message from server, could you please try again?" }
-        // setMessages(prev => [...prev, msg]);
         return;
       }
-      console.log("message_received", lastMessage)
-      if (message_received?.type === "viz_code") {
+
+      console.log("message_received", message_received)
+
+      if (message_received.type === "viz_code") {
         try {
           const chartData: ChartData = {
             reason: message_received.reason,
@@ -94,12 +97,26 @@ const ChatArea: React.FC<ChatAreaProps> = ({ initialMessages, onDataReceived, on
             assistant_message_uuid: message_received.assistant_message_uuid
           }
           const msg: ChatMessage = { role: 'assistant', content: message_received.viz_name, type: message_received.type, chartData: chartData }
+
           setMessages(prev => [...prev, msg]);
         } catch (error) {
           console.error('Error parsing WebSocket message:', error);
         }
-      } else if (message_received?.type === "ack") {
+      } else if (message_received.type === "ack") {
         setMessages(prev => [...prev, message_received]);
+      } else if (message_received.type === "analyze_visualization") {
+          const chartData: ChartData = {
+            reason: message_received.reason,
+            viz_name: message_received.viz_name,
+            pd_code: message_received.pd_code,
+            pd_viz_code: message_received.pd_viz_code,
+            svg_json: message_received.svg_json,
+            data: message_received.data,
+            assistant_message_uuid: message_received.assistant_message_uuid
+          }
+          const msg: ChatMessage = { role: 'assistant', content: message_received.viz_name, type: message_received.type, chartData: chartData, analysis: message_received.reason }
+
+          setMessages(prev => [...prev, msg]);
       }
     }
   }, [lastMessage]);
@@ -107,7 +124,7 @@ const ChatArea: React.FC<ChatAreaProps> = ({ initialMessages, onDataReceived, on
   useEffect(() => {
     if (replyToAssistantMessageIdx !== null) {
       const msg_len = messages.length
-      for (let i = msg_len - 1; i >= 0; i--) {
+    for (let i = msg_len - 1; i >= 0; i--) {
         if (messages[i].chartData?.assistant_message_uuid === replyToAssistantMessageIdx) {
           setChartSelected(messages[i]?.chartData ?? null)
           setRefineVizName(messages[i]?.chartData?.viz_name ?? null)
@@ -142,6 +159,23 @@ const ChatArea: React.FC<ChatAreaProps> = ({ initialMessages, onDataReceived, on
   useEffect(() => {
     throttledScrollToBottom();
   }, [messages, throttledScrollToBottom]);
+  
+
+  const handleAnalyzeVisualization = () => {
+    if (chartSelected) {
+      const serverMsgBody = JSON.stringify({
+        type: "analyze_visualization",
+        user_message_body: {
+          question: input,
+          session_id: apiData?.session_id,
+        },
+        reply_to_assistant_message_uuid: replyToAssistantMessageIdx
+      });
+
+      sendMessage(serverMsgBody);
+      setInput('');
+    }
+  }
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -154,9 +188,11 @@ const ChatArea: React.FC<ChatAreaProps> = ({ initialMessages, onDataReceived, on
         userMsg = { role: 'user', content: input}
       }
       setMessages(prev => [...prev, userMsg]);
-
+      
+      const msg_type = replyToAssistantMessageIdx !== null ? "refine_visualizations" : "generate_visualizations";
+      
       const serverMsgBody = JSON.stringify({
-        type: replyToAssistantMessageIdx !== null ? "refine_visualizations" : "generate_visualizations",
+        type: msg_type,
         user_message_body: {
           question: input,
           session_id: apiData?.session_id,
@@ -276,14 +312,21 @@ const ChatArea: React.FC<ChatAreaProps> = ({ initialMessages, onDataReceived, on
                 <div>
                   <p className="text-md font-semibold mb-2 text-center">{message.chartData.viz_name.replace(/_/g, ' ').toUpperCase()}</p>
                   <br/>
-                  <p className="text-sm text-center">{message.chartData.reason}</p>
+                  {
+                    message.analysis ?
+                    <ReactMarkdown className="prose text-sm text-center">
+                      {message.analysis || ''}
+                    </ReactMarkdown> :
+                    <p className="text-sm text-center">{message.chartData.reason}</p>
+                  }
                 </div>
               </div>
               <div className="mt-4 w-full">
                 <ChartContainer 
                   message={message} 
-                  replyToAssistantMessageIdx={replyToAssistantMessageIdx} 
+                  setMsgRequestedType={setMsgRequestedType}
                   setReplyToAssistantMessageIdx={setReplyToAssistantMessageIdx} 
+                  handleAnalyzeVisualization={handleAnalyzeVisualization}
                 />
               </div>
             </div>
@@ -298,7 +341,7 @@ const ChatArea: React.FC<ChatAreaProps> = ({ initialMessages, onDataReceived, on
         )}
       </div>
     )
-  }), []);
+  }), [handleAnalyzeVisualization]);
 
   return (
     <div className="flex flex-col h-full">
@@ -316,7 +359,7 @@ const ChatArea: React.FC<ChatAreaProps> = ({ initialMessages, onDataReceived, on
       <div className="border-t border-gray-200 bg-white">
         <form onSubmit={handleSubmit} className="max-w-3xl mx-auto p-4">
           {/* Refining message */}
-          {refineVizName && (
+          {refineVizName && msgRequestedType === "refine_visualizations" && (
             <div className="mb-2 flex items-center justify-end space-x-2">
               <p className="text-sm text-gray-600">Refining viz ... {refineVizName}</p>
               <button
@@ -340,12 +383,13 @@ const ChatArea: React.FC<ChatAreaProps> = ({ initialMessages, onDataReceived, on
               placeholder={refineVizName ? `Refining ${refineVizName}...` : "What would you like to ask?"}
               className="flex-1 p-3 bg-transparent focus:outline-none"
             />
+            
             <button
               type="button"
               onClick={() => document.getElementById('file-upload')?.click()}
               className="p-3 text-blue-500 hover:text-blue-600 focus:outline-none"
             >
-            <Upload size={20} />
+              <Upload size={20} />
             </button>
             
             <input

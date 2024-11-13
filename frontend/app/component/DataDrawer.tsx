@@ -44,8 +44,6 @@ export function DataDrawer({ isOpen, onClose, originalData, chartData }: DataDra
 
   console.log("activeData", activeData);
 
-  debugger;
-
   useEffect(() => {
     console.log("activetab", activeTab);
   }, [activeTab]);
