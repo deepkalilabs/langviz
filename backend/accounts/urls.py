@@ -10,6 +10,6 @@ urlpatterns = [
     path('v1/signup', SignupView.as_view(), name='signup'),
     path('v1/login', LoginView.as_view(), name='login'),
     path('v1/google-auth', GoogleAuthView.as_view(), name='google-auth'),
-    path('v1/verify-email/<str:token>', VerifyEmailView.as_view(), name='verify-email'),
+    path('v1/verify-email', VerifyEmailView.as_view(), name='verify-email'),
     # Add any additional URL patterns for the accounts app here
 ]

@@ -7,7 +7,7 @@ from rest_framework.authtoken.models import Token
 from django.contrib.auth import authenticate, get_user_model
 from django.core.mail import send_mail
 from django.conf import settings
-from .serializers import LoginSerializer, SignupSerializer
+from .serializers import LoginSerializer, SignupSerializer, EmailVerificationSerializer
 
 User = get_user_model()
 
@@ -43,7 +43,7 @@ class SignupView(APIView):
             
             # Send verification email
             try:
-                verification_link = f"{settings.FRONTEND_URL}/verify-email?token={user.verification_token}"
+                verification_link = f"{settings.FRONTEND_URL}/auth/verify-email?token={user.verification_token}"
                 send_mail(
                     'Verify your email',
                     f'Click the link to verify your email: {verification_link}',
@@ -109,20 +109,30 @@ class LoginView(APIView):
     
 
 class VerifyEmailView(APIView):
-    def get(self, request, token):
-        try:
-            user = User.objects.get(verification_token=token)
-            user.is_verified = True
-            user.verification_token = None
-            user.save()
+    def post(self, request):
+        token = request.data.get('token')
+        if not token:
+            return Response({'detail': 'Token is required'}, status=status.HTTP_400_BAD_REQUEST)
+            
+        serializer = EmailVerificationSerializer(data={'token': token})
+        print(serializer)
+        
+        if serializer.is_valid():
+            try:
+                user = User.objects.get(verification_token=token)
+                user.is_verified = True
+                user.verification_token = None
+                user.save()
 
-            return Response({
-                'detail': 'Email verified successfully.'
-            }, status=status.HTTP_200_OK)
-        except User.DoesNotExist:
-            return Response({
-                'detail': 'Invalid verification token.'
-            }, status=status.HTTP_400_BAD_REQUEST)
+                return Response({
+                    'detail': 'Email verified successfully.'
+                }, status=status.HTTP_200_OK)
+            except User.DoesNotExist:
+                return Response({
+                    'detail': 'Invalid verification token.'
+                }, status=status.HTTP_400_BAD_REQUEST)
+                
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
 class GoogleAuthView(APIView):
