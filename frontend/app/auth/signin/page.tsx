@@ -2,7 +2,19 @@
 import { useState } from 'react'
 import { signIn } from "next-auth/react"
 import Link from 'next/link'
-import { useRouter} from 'next/navigation'
+import { useRouter } from 'next/navigation'
+import { Button } from "@/components/ui/button"
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { Icons } from '@/components/ui/icons';
 
 export default function SignIn() {
   const router = useRouter()
@@ -19,23 +31,20 @@ export default function SignIn() {
     setError(null)
 
     try {     
-     const result = await signIn('credentials', {
-      email: formData.email,
-      password: formData.password,
-      redirect: false
-     })
-     console.log("result", result)
-     
+      const result = await signIn('credentials', {
+        email: formData.email,
+        password: formData.password,
+        redirect: false
+      })
 
-     if (result?.error) {
-        setError('Invalid email or password' as any) // Reset first
+      if (result?.error) {
+        setError('Invalid email or password' as any)
       } else {
-        //Route to chat page
         router.push('/r/chat')
         router.refresh()
       }
     } catch (error) {
-      setError("Error signing in" as any) // Type assertion to fix type error
+      setError("Error signing in" as any)
     } finally {
       setLoading(false)
     }
@@ -47,94 +56,97 @@ export default function SignIn() {
     await signIn('google', { callbackUrl: '/r/chat' })
   }
 
-
   return (
     <div className="flex min-h-screen items-center justify-center p-4">
-    <div className="w-full max-w-md space-y-8 rounded-lg bg-white p-8 shadow-lg">
-      <div>
-        <h2 className="text-center text-3xl font-bold">Sign In</h2>
-      </div>
-
-      <form onSubmit={handleEmailSignin} className="mt-8 space-y-6">
-        <div className="space-y-4">
-          <div>
-            <label htmlFor="email" className="block text-sm font-medium text-gray-700">
-              Email
-            </label>
-            <input
-              id="email"
-              type="email"
-              required
-              value={formData.email}
-              onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-              className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-blue-500"
-            />
-          </div>
-
-          <div>
-            <label htmlFor="password" className="block text-sm font-medium text-gray-700">
-              Password
-            </label>
-            <input
-              id="password"
-              type="password"
-              required
-              value={formData.password}
-              onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-              className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-blue-500"
-            />
-          </div>
-        </div>
-
-        {error && (
-          <div className="text-sm text-red-600">
-            {error}
-          </div>
-        )}
-
-        <button
-          type="submit"
-          disabled={loading}
-          className="w-full rounded-md bg-blue-600 px-4 py-2 text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50"
-        >
-          {loading ? 'Signing in...' : 'Sign in'}
-        </button>
-      </form>
-
-      <div className="relative">
-        <div className="absolute inset-0 flex items-center">
-          <div className="w-full border-t border-gray-300" />
-        </div>
-        <div className="relative flex justify-center text-sm">
-          <span className="bg-white px-2 text-gray-500">Or continue with</span>
-        </div>
-      </div>
-
-      <button
-        onClick={handleGoogleSignin}
-        type="button"
-        className="flex w-full items-center justify-center gap-3 rounded-md border border-gray-300 bg-white px-4 py-2 text-gray-700 shadow-sm hover:bg-gray-50"
-      >
-        <svg className="h-5 w-5" viewBox="0 0 24 24">
-          <path
-            fill="currentColor"
-            d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
-          />
-          <path
-            fill="currentColor"
-            d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
-          />
-        </svg>
-        Continue with Google
-      </button>
-
-      <div className="text-center text-sm">
-        <Link href="/auth/signup" className="text-blue-600 hover:text-blue-500">
-          Don't have an account? Sign up
-        </Link>
-      </div>
+      <Card className="w-full max-w-md">
+        <CardHeader className="space-y-1">
+          <CardTitle className="text-2xl text-center">Sign in</CardTitle>
+          <CardDescription className="text-center">
+            Enter your email and password to sign in to your account
+          </CardDescription>
+        </CardHeader>
+        <form onSubmit={handleEmailSignin}>
+          <CardContent className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="email">Email</Label>
+              <Input
+                id="email"
+                type="email"
+                placeholder="email@example.com"
+                required
+                value={formData.email}
+                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                disabled={loading}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="password">Password</Label>
+              <Input
+                id="password"
+                type="password"
+                placeholder="********"
+                required
+                value={formData.password}
+                onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                disabled={loading}
+              />
+            </div>
+            {error && (
+              <div className="text-sm text-destructive">
+                {error}
+              </div>
+            )}
+          </CardContent>
+          <CardFooter className="flex flex-col space-y-4">
+            <Button 
+              type="submit" 
+              className="w-full"
+              disabled={loading}
+            >
+              {loading && (
+                <Icons.spinner className="mr-2 h-4 w-4 animate-spin" />
+              )}
+              Sign in
+            </Button>
+            <div className="relative">
+              <div className="absolute inset-0 flex items-center">
+                <span className="w-full border-t" />
+              </div>
+              <div className="relative flex justify-center text-xs uppercase">
+                <span className="bg-background px-2 text-muted-foreground">
+                  Or continue with
+                </span>
+              </div>
+            </div>
+            <Button
+              variant="outline"
+              type="button"
+              disabled={loading}
+              className="w-full"
+              onClick={handleGoogleSignin}
+            >
+              {loading ? (
+                <Icons.spinner className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <Icons.google className="mr-2 h-4 w-4" />
+              )}
+              Google
+            </Button>
+            <div className="flex flex-col space-y-1">
+              <Button variant="link" asChild className="px-0 font-normal">
+                <Link href="/auth/signup">
+                  Don't have an account? Sign up
+                </Link>
+              </Button>
+              <Button variant="link" asChild className="px-0 font-normal">
+                <Link href="/auth/forgot-password">
+                  Forgot password? Reset here
+                </Link>
+              </Button>
+            </div>
+          </CardFooter>
+        </form>
+      </Card>
     </div>
-  </div>
-
   )
 }
