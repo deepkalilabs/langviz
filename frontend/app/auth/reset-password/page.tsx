@@ -11,43 +11,52 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card'
+import { Eye, EyeOff } from 'lucide-react' // Add this import at the top
+import { useRouter } from 'next/navigation'
+
 
 export default function ResetPasswordPage() {
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
   const [error, setError] = useState('')
   const [isLoading, setIsLoading] = useState(false)
+  const [showPassword, setShowPassword] = useState(false)
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false)
   const searchParams = useSearchParams()
   const token = searchParams.get('token')
-
+  const router = useRouter()
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError('')
 
-    if (password !== confirmPassword) {
+    const trimmedPassword = password.trim()
+    const trimmedConfirmPassword = confirmPassword.trim()
+
+    if (trimmedPassword !== trimmedConfirmPassword) {
       setError('Passwords do not match')
       return
     }
 
-    if (password.length < 8) {
+    if (trimmedPassword.length < 8) {
       setError('Password must be at least 8 characters long')
       return
     }
 
     setIsLoading(true)
     try {
-      const response = await fetch('/api/auth/reset-password', {
+      const backendUrl = process.env.NEXT_PUBLIC_API_URL
+      console.log("backendUrl", backendUrl)
+      const response = await fetch(`${backendUrl}/api/accounts/v1/reset-password`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ token, password }),
+        body: JSON.stringify({ token, password: trimmedPassword }),
       })
 
       if (!response.ok) {
         throw new Error('Failed to reset password')
       }
-
       // Redirect to login page or show success message
-      window.location.href = '/auth/login?reset=success'
+      router.push('/auth/signin')
     } catch (err) {
       setError('Failed to reset password. Please try again.')
     } finally {
@@ -64,23 +73,39 @@ export default function ResetPasswordPage() {
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="space-y-2">
+            <div className="space-y-2 relative">
               <Input
-                type="password"
+                type={showPassword ? "text" : "password"}
                 placeholder="New Password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 disabled={isLoading}
+                className="pr-8"
               />
+              <button
+                type="button"
+                className="absolute right-2.5 top-[30%] -translate-y-1/2"
+                onClick={() => setShowPassword(!showPassword)}
+              >
+                {showPassword ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
+              </button>
             </div>
-            <div className="space-y-2">
+            <div className="space-y-2 relative">
               <Input
-                type="password"
+                type={showConfirmPassword ? "text" : "password"}
                 placeholder="Confirm Password"
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
                 disabled={isLoading}
+                className="pr-8"
               />
+              <button
+                type="button"
+                className="absolute right-2.5 top-[30%] -translate-y-1/2"
+                onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+              >
+                {showConfirmPassword ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
+              </button>
             </div>
             {error && <p className="text-sm text-red-500">{error}</p>}
             <Button

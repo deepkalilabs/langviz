@@ -10,6 +10,7 @@ class User(AbstractUser):
     is_verified = models.BooleanField(default=False)
     # Verification token for email verification
     verification_token = models.CharField(max_length=255, null=True, blank=True)
+    password_reset_token = models.UUIDField(null=True, blank=True)
 
     #Google Auth
     google_id = models.CharField(max_length=255, null=True, blank=True)

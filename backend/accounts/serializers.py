@@ -39,7 +39,13 @@ class LoginSerializer(serializers.Serializer):
 class EmailVerificationSerializer(serializers.Serializer):
     token = serializers.CharField()
 
-    
+
+class ForgotPasswordSerializer(serializers.Serializer):
+    email = serializers.EmailField(required=True)
+
+class ResetPasswordSerializer(serializers.Serializer):
+    token = serializers.CharField()
+    password = serializers.CharField(required=True)
 
 
 
