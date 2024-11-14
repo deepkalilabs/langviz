@@ -1,8 +1,8 @@
 'use client';
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { signIn } from "next-auth/react"
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { Button } from "@/components/ui/button"
 import {
   Card,
@@ -24,6 +24,8 @@ export default function SignIn() {
   })
   const [error, setError] = useState(null)
   const [loading, setLoading] = useState(false)
+  const searchParams = useSearchParams()
+  const callbackUrl = searchParams.get('callbackUrl')
 
   const handleEmailSignin = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
@@ -49,6 +51,12 @@ export default function SignIn() {
       setLoading(false)
     }
   }
+
+  useEffect(() => {
+    if (callbackUrl) {
+      router.push(callbackUrl)
+    }
+  }, [callbackUrl])
 
   const handleGoogleSignin = async () => {
     setLoading(true)
