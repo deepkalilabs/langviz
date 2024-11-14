@@ -176,6 +176,9 @@ CORS_ORIGIN_WHITELIST = [
     'http://127.0.0.1:3000',
 ]
 
+
+ALLOWED_HOSTS = ['*']
+
 # Email settings
 if DEBUG:  # Development environment
     EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'

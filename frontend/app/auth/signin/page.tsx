@@ -19,14 +19,26 @@ export default function SignIn() {
     setError(null)
 
     try {
-      const result = await signIn('credentials', {
-        email: formData.email,
-        password: formData.password,
-        redirect: false,
-      })
-      if (result?.error) {
+      const result = await fetch(
+        `http://localhost:8000/api/accounts/v1/login`,
+        {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              email: formData.email,
+              password: formData.password
+            })
+        }
+    )
+     
+
+      const data = await result.json()
+
+     if (!result.ok) {
         setError(null) // Reset first
-        setError("Invalid email or password" as any) // Type assertion to fix type error
+        setError(data.detail || "Invalid email or password")
       } else {
         router.push('/r/chat')
         router.refresh()

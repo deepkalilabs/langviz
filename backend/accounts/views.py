@@ -88,7 +88,9 @@ class LoginView(APIView):
                 }, status=status.HTTP_404_NOT_FOUND)
             
             if user:
-                token = Token.objects.create(user=user)
+                # This will either get the existing token or create a new one
+                token, _ = Token.objects.get_or_create(user=user)
+
                 return Response({
                     'user': {
                         'id': user.id,
