@@ -76,12 +76,21 @@ class LoginView(APIView):
             email = serializer.validated_data['email']
             password = serializer.validated_data['password']
 
+            print("Receiving login request for:", email)
+
             try:
                 user = User.objects.get(email=email)
                 if not user.is_verified and not user.is_google_account:
                     return Response({
                         'detail': 'Please verify your email to login.'
                     }, status=status.HTTP_403_FORBIDDEN)
+                
+                # Verify password
+                if not user.check_password(password):
+                    return Response({
+                        'detail': 'Invalid credentials.'
+                    }, status=status.HTTP_401_UNAUTHORIZED)
+                    
             except User.DoesNotExist:
                 return Response({
                     'detail': 'No account found with this email.'

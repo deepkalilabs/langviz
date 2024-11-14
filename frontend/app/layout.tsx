@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import localFont from "next/font/local";
 import "./globals.css";
 import ClientProvider from "./ClientProvider";
-import { NextAuthProvider } from './component/Providers'
+import { NextAuthProvider } from "./component/Providers";
 
 
 const geistSans = localFont({
@@ -23,16 +23,18 @@ export const metadata: Metadata = {
 
 export default function RootLayout({
   children,
-}: Readonly<{
-  children: React.ReactNode;
-}>) {
+}: {
+  children: React.ReactNode
+}) {
   return (
     <html lang="en">
-      <ClientProvider>
-        <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
-          <NextAuthProvider>{children}</NextAuthProvider>
-        </body>
-      </ClientProvider>
+      <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
+        <NextAuthProvider>
+          <ClientProvider>
+            {children}
+          </ClientProvider>
+        </NextAuthProvider>
+      </body>
     </html>
-  );
+  )
 }

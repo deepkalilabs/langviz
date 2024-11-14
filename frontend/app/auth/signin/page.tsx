@@ -18,28 +18,19 @@ export default function SignIn() {
     setLoading(true)
     setError(null)
 
-    try {
-      const result = await fetch(
-        `http://localhost:8000/api/accounts/v1/login`,
-        {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              email: formData.email,
-              password: formData.password
-            })
-        }
-    )
+    try {     
+     const result = await signIn('credentials', {
+      email: formData.email,
+      password: formData.password,
+      redirect: false
+     })
+     console.log("result", result)
      
 
-      const data = await result.json()
-
-     if (!result.ok) {
-        setError(null) // Reset first
-        setError(data.detail || "Invalid email or password")
+     if (result?.error) {
+        setError('Invalid email or password' as any) // Reset first
       } else {
+        //Route to chat page
         router.push('/r/chat')
         router.refresh()
       }

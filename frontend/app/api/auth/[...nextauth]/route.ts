@@ -2,59 +2,93 @@ import NextAuth from "next-auth"
 import CredentialsProvider from "next-auth/providers/credentials"
 import axios from 'axios'
 
+type User = {
+  id: number;
+  email: string;
+  accessToken: string;
+  refreshToken: string;
+}
 
 const handler = NextAuth({
   providers: [
     CredentialsProvider({
       name: "Credentials",
       credentials: {
-        email: { label: "Email", type: "text" },
+        email: { label: "Email", type: "email" },
         password: { label: "Password", type: "password" }
       },
       async authorize(credentials) {
         if (!credentials?.email || !credentials?.password) {
-          throw new Error('Email and password are required')
+          throw new Error('Please provide both email and password');
         }
 
         try {
-          console.log('Attempting login with:', credentials.email)
-          
-          const response = await fetch('http://localhost:8000/api/accounts/v1/login/', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              email: credentials.email,
-              password: credentials.password
-            })
-          })
+          console.log("Attempting login with:", credentials?.email); // Debug log
 
-          const data = await response.json()
-          console.log('Login response:', data)
-
-          return {
-            id: credentials.email,
+          // If backend is running on local docker, use docker backend url, else use process.env.NEXT_PUBLIC_API_URL
+          const backendUrl = process.env.DOCKER_BACKEND_LOCAL_URL || process.env.NEXT_PUBLIC_API_URL;
+          if (!backendUrl) {
+            throw new Error('Backend URL is not configured');
+          }
+          console.log("Using backend URL:", backendUrl); // Debug log
+          const response = await axios.post(`${backendUrl}/api/accounts/v1/login`, {
             email: credentials.email,
-            name: credentials.email,
-            ...data
+            password: credentials.password
+          });
+
+          console.log("Login response:", response.data); // Debug log
+
+          if (response.status === 200) {
+            // Return user data AND tokens
+            const user: User = {
+              id: response.data.user.id,
+              email: response.data.user.email,
+              accessToken: response.data.token.access_token,
+              refreshToken: response.data.token.refresh_token,
+            };
+            return user;
+
           }
-        } catch (error) {
-          if (axios.isAxiosError(error)) {
-            console.error('Login failed:', error.response?.data || error.message)
-            return null
-          }
-          console.error('Auth error:', error)
-          return null
+          return null;
+
+        } catch (error: any) {
+          console.error("Login error:", error.response?.data || error.message);
+          throw new Error(error.response?.data?.message || 'Authentication failed');
         }
       }
     })
   ],
   pages: {
     signIn: '/auth/signin',
-    error: '/auth/error',
   },
-  debug: true,
+  callbacks: {
+    async jwt({ token, user, account }) {
+      // Initial sign in
+      if (user && 'accessToken' in user && 'refreshToken' in user) {
+        token.accessToken = user.accessToken;
+        token.refreshToken = user.refreshToken;
+        token.email = user.email;
+        token.id = user.id;
+      }
+      return token;
+    },
+    async session({ session, token }) {
+      // Send properties to the client
+      session.user = {
+        email: token.email,
+        id: token.id as number,
+        accessToken: token.accessToken as string,
+        refreshToken: token.refreshToken as string
+      };
+      return session;
+    }
+  },
+  // Increase session lifetime if needed
+  session: {
+    strategy: "jwt",
+    maxAge: 30 * 24 * 60 * 60, // 30 days
+  },
+  debug: process.env.NODE_ENV === 'development',
 })
 
 export { handler as GET, handler as POST }

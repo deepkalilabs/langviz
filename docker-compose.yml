@@ -33,6 +33,11 @@ services:
   frontend:
     environment:
       - WATCHPACK_POLLING=true
+      - NEXTAUTH_URL=${NEXTAUTH_URL}
+      - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL}
+      - NEXTAUTH_SECRET=${NEXTAUTH_SECRET}
+      - DOCKER_BACKEND_LOCAL_URL=${DOCKER_BACKEND_LOCAL_URL}
+
     build:
       context: .
       dockerfile: docker/Dockerfile.frontend
