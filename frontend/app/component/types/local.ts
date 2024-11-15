@@ -1,15 +1,19 @@
 import { DataSetApiResponse } from "./api";
 
-interface OriginalDataSet {
+interface DataSet {
     data: Record<string, string | number | boolean | null>[];
     name: string;
     description: string;
     uri: string;
 }
 
+interface SubsetData {
+  data: Record<string, string | number | boolean | null>[];
+}
+
 interface ChatProps {
   //sessionId: string;
-  originalData: OriginalDataSet;
+  originalData: DataSet;
   dataResponse: DataSetApiResponse;
 }
 
@@ -19,6 +23,7 @@ interface ChartData {
   pd_code: string;
   pd_viz_code: string;
   svg_json: string;
+  data: SubsetData;
   assistant_message_uuid?: string;
 }
 
@@ -28,8 +33,8 @@ interface ChatMessage {
   type?: string;
   content: string;
   chartData?: ChartData;
+  analysis?: string;
 }
-
 
 interface PandasSvgViz {
   pd_code: string;
@@ -38,4 +43,4 @@ interface PandasSvgViz {
   viz_name: string;
 }
   
-export type { OriginalDataSet, ChatProps, ChartData, ChatMessage, PandasSvgViz };
+export type { DataSet, ChatProps, ChartData, ChatMessage, PandasSvgViz };

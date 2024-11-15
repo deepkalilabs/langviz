@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect, useCallback } from 'react';
+import React, { useState, useRef, useEffect, useCallback, useMemo, use } from 'react';
 import { Send, Upload, Database, XIcon } from 'lucide-react';
 import { useDropzone } from 'react-dropzone';
 import axios from 'axios';
@@ -7,10 +7,15 @@ import Papa from 'papaparse';
 import useWebSocket from 'react-use-websocket';
 import DataTable from '../../../component/DataTable';
 import ChartContainer from '../../../component/ChartContainer';
+import { DataDrawer } from '../../../component/DataDrawer';
 import { DataSetApiResponse, OriginalDataSet, ChatProps, ChatMessage, ChartData } from '../../../component/types';
 import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
 import { Upload as S3Upload } from '@aws-sdk/lib-storage';
 import { v4 as uuidv4 } from 'uuid';
+import { throttle } from 'lodash'; // Add this import
+import { debug } from 'console';
+import ReactMarkdown from 'react-markdown';
+import AnalyzeChartContainer from '../../../component/AnalyzeChartContainer';
 
 interface ChatAreaProps {
   initialMessages: ChatMessage[];
@@ -36,8 +41,7 @@ const s3Client = new S3Client({
 const UploadFileS3 = async (file: File) => {
   // TODO: Remove after debugging is done
   const fileExt = file.name.split('.')[1];
-  // const uniqueFilename = uuidv4() + '.' + fileExt;
-  const uniqueFilename = "62083a15-665e-4f82-922c-f7f9b63323bb.csv"
+  const uniqueFilename = uuidv4() + '.' + fileExt;
   const s3Key = 'data_uploads/' + uniqueFilename;
   const s3Uri = `s3://${process.env.NEXT_PUBLIC_AWS_BUCKET_NAME}/${s3Key}`;
   // If you need a public URL instead:
@@ -53,19 +57,21 @@ const UploadFileS3 = async (file: File) => {
     },
   }); 
 
-  // await upload.done(); 
+  await upload.done(); 
 
   return { s3Uri, publicUrl };
 }
 
 const ChatArea: React.FC<ChatAreaProps> = ({ initialMessages, onDataReceived, onUploadComplete }) => {
   const [messages, setMessages] = useState<ChatMessage[]>(initialMessages);
+  const [message, setMessage] = useState<ChatMessage | null>(null);
   const [input, setInput] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const [apiData, setApiData] = useState<DataSetApiResponse | null>(null);
   const [originalData, setOriginalData] = useState<OriginalDataSet | null>(null);
   const [isDataDrawerOpen, setIsDataDrawerOpen] = useState(false);
   const [replyToAssistantMessageIdx, setReplyToAssistantMessageIdx] = useState<string | null>(null);
+  const [msgRequestedType, setMsgRequestedType] = useState<string | null>(null);
   const [chartSelected, setChartSelected] = useState<ChartData | null>(null);
   const [refineVizName, setRefineVizName] = useState<string | null>(null);
 
@@ -74,7 +80,12 @@ const ChatArea: React.FC<ChatAreaProps> = ({ initialMessages, onDataReceived, on
   useEffect(() => {
     if (lastMessage !== null) {
       const message_received = JSON.parse(lastMessage.data);
-      console.log("message_received", lastMessage)
+      if (!message_received) {
+        return;
+      }
+
+      console.log("message_received", message_received)
+
       if (message_received.type === "viz_code") {
         try {
           const chartData: ChartData = {
@@ -83,22 +94,38 @@ const ChatArea: React.FC<ChatAreaProps> = ({ initialMessages, onDataReceived, on
             pd_code: message_received.pd_code,
             pd_viz_code: message_received.pd_viz_code,
             svg_json: message_received.svg_json,
+            data: message_received.data,
             assistant_message_uuid: message_received.assistant_message_uuid
           }
           const msg: ChatMessage = { role: 'assistant', content: message_received.viz_name, type: message_received.type, chartData: chartData }
+
           setMessages(prev => [...prev, msg]);
         } catch (error) {
           console.error('Error parsing WebSocket message:', error);
         }
       } else if (message_received.type === "ack") {
         setMessages(prev => [...prev, message_received]);
+      } else if (message_received.type === "analyze_visualization") {
+          const chartData: ChartData = {
+            reason: message_received.reason,
+            viz_name: message_received.viz_name,
+            pd_code: message_received.pd_code,
+            pd_viz_code: message_received.pd_viz_code,
+            svg_json: message_received.svg_json,
+            data: message_received.data,
+            assistant_message_uuid: message_received.assistant_message_uuid
+          }
+          const msg: ChatMessage = { role: 'assistant', content: message_received.viz_name, type: message_received.type, chartData: chartData, analysis: message_received.reason }
+
+          setMessages(prev => [...prev, msg]);
       }
     }
   }, [lastMessage]);
 
   useEffect(() => {
     if (replyToAssistantMessageIdx !== null) {
-      for (let i = messages.length - 1; i >= 0; i--) {
+      const msg_len = messages.length
+    for (let i = msg_len - 1; i >= 0; i--) {
         if (messages[i].chartData?.assistant_message_uuid === replyToAssistantMessageIdx) {
           setChartSelected(messages[i]?.chartData ?? null)
           setRefineVizName(messages[i]?.chartData?.viz_name ?? null)
@@ -109,7 +136,7 @@ const ChatArea: React.FC<ChatAreaProps> = ({ initialMessages, onDataReceived, on
       setChartSelected(null)
       setRefineVizName(null)
     }
-  }, [replyToAssistantMessageIdx, messages])
+  }, [replyToAssistantMessageIdx])
 
   const handleDataReceived = useCallback((originalData: OriginalDataSet, apiData: DataSetApiResponse) => {
     console.log('Papa parsed data:', originalData);
@@ -122,11 +149,34 @@ const ChatArea: React.FC<ChatAreaProps> = ({ initialMessages, onDataReceived, on
     setIsDataDrawerOpen(true);
   }, [isDataDrawerOpen]);
 
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  };
+  const throttledScrollToBottom = useCallback(
+    throttle(() => {
+      messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    }, 100),
+    []
+  );
 
-  useEffect(scrollToBottom, [messages]);
+  // Update useEffect to use throttled scroll function
+  useEffect(() => {
+    throttledScrollToBottom();
+  }, [messages, throttledScrollToBottom]);
+  
+
+  const handleAnalyzeVisualization = () => {
+    if (chartSelected) {
+      const serverMsgBody = JSON.stringify({
+        type: "analyze_visualization",
+        user_message_body: {
+          question: input,
+          session_id: apiData?.session_id,
+        },
+        reply_to_assistant_message_uuid: replyToAssistantMessageIdx
+      });
+
+      sendMessage(serverMsgBody);
+      setInput('');
+    }
+  }
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -139,9 +189,11 @@ const ChatArea: React.FC<ChatAreaProps> = ({ initialMessages, onDataReceived, on
         userMsg = { role: 'user', content: input}
       }
       setMessages(prev => [...prev, userMsg]);
-
+      
+      const msg_type = replyToAssistantMessageIdx !== null ? "refine_visualizations" : "generate_visualizations";
+      
       const serverMsgBody = JSON.stringify({
-        type: replyToAssistantMessageIdx !== null ? "refine_visualizations" : "generate_visualizations",
+        type: msg_type,
         user_message_body: {
           question: input,
           session_id: apiData?.session_id,
@@ -241,51 +293,64 @@ const ChatArea: React.FC<ChatAreaProps> = ({ initialMessages, onDataReceived, on
     setIsDataDrawerOpen(!isDataDrawerOpen);
   };
 
+  const ChatMessageMemoized = useMemo(() => React.memo(({ message, key }: { message: ChatMessage, key: number }) => {
+    return (
+      <div key={key} className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+        {message.role === 'assistant' && !message.chartData?.svg_json && (
+          <div className="w-8 h-8 rounded-full bg-blue-500 flex items-center justify-center text-white font-bold mr-3">
+            A
+          </div>
+        )}
+        <div className={`max-w-full w-full rounded-lg p-2 flex ${
+          message.role === 'user' ? 'bg-blue-100 text-gray-800 justify-end items-end' : 'bg-gray-100 text-gray-600 justify-start items-start'
+        }`}>
+          {message.chartData?.svg_json ? (
+            <div className="flex flex-col justify-start">
+              <div className="flex items-start justify-start">
+                {/* <div className="w-8 h-8 rounded-full bg-black-100 flex items-center justify-center text-white font-bold mr-3 flex-shrink-0">
+                  V
+                </div> */}
+                <div>
+                  <p className="text-md font-semibold mb-2 text-center">{message.chartData.viz_name.replace(/_/g, ' ').toUpperCase()}</p>
+                  <br/>
+                  <div className="px-4 py-2 prose dark:prose-invert max-w-none">
+                    {message.analysis ? (
+                      <ReactMarkdown>{message.analysis}</ReactMarkdown>
+                    ) : (
+                      <p>{message.chartData.reason}</p>
+                    )}
+                  </div>
+                </div>
+              </div>
+              <div className="mt-4 w-full">
+                <ChartContainer 
+                  message={message} 
+                  setMsgRequestedType={setMsgRequestedType}
+                  setReplyToAssistantMessageIdx={setReplyToAssistantMessageIdx} 
+                  handleAnalyzeVisualization={handleAnalyzeVisualization}
+                />
+              </div>
+            </div>
+          ) : (
+            <p>{message.content}</p>
+          )}
+        </div>
+        {message.role === 'user' && (
+          <div className="w-8 h-8 rounded-full bg-red-500 flex items-center justify-center text-white font-bold ml-3">
+            C
+          </div>
+        )}
+      </div>
+    )
+  }), [handleAnalyzeVisualization]);
+
   return (
     <div className="flex flex-col h-full">
       {/* Chat messages */}
       <div className="flex-1 overflow-y-auto px-4 py-6" {...getRootProps()}>
         <div className="max-w-3xl mx-auto space-y-6">
-          {messages.map((message, index) => (
-            <div key={index} className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-              {message.role === 'assistant' && !message.chartData?.svg_json && (
-                <div className="w-8 h-8 rounded-full bg-blue-500 flex items-center justify-center text-white font-bold mr-3">
-                  A
-                </div>
-              )}
-              <div className={`max-w-full w-full rounded-lg p-2 flex ${
-                message.role === 'user' ? 'bg-blue-100 text-gray-800 justify-end items-end' : 'bg-gray-100 text-gray-600 justify-start items-start'
-              }`}>
-                {message.chartData?.svg_json ? (
-                  <div className="flex flex-col justify-start">
-                    <div className="flex items-start justify-start">
-                      {/* <div className="w-8 h-8 rounded-full bg-black-100 flex items-center justify-center text-white font-bold mr-3 flex-shrink-0">
-                        V
-                      </div> */}
-                      <div>
-                        <p className="text-md font-semibold mb-2 text-center">{message.chartData.viz_name.replace(/_/g, ' ').toUpperCase()}</p>
-                        <br/>
-                        <p className="text-sm text-center">{message.chartData.reason}</p>
-                      </div>
-                    </div>
-                    <div className="mt-4 w-full">
-                      <ChartContainer 
-                        message={message} 
-                        replyToAssistantMessageIdx={replyToAssistantMessageIdx} 
-                        setReplyToAssistantMessageIdx={setReplyToAssistantMessageIdx} 
-                      />
-                    </div>
-                  </div>
-                ) : (
-                  <p>{message.content}</p>
-                )}
-              </div>
-              {message.role === 'user' && (
-                <div className="w-8 h-8 rounded-full bg-red-500 flex items-center justify-center text-white font-bold ml-3">
-                  C
-                </div>
-              )}
-            </div>
+          {messages.map((message, key) => (
+            <ChatMessageMemoized message={message} key={key} />
           ))}
           <div ref={messagesEndRef} />
         </div>
@@ -295,7 +360,7 @@ const ChatArea: React.FC<ChatAreaProps> = ({ initialMessages, onDataReceived, on
       <div className="border-t border-gray-200 bg-white">
         <form onSubmit={handleSubmit} className="max-w-3xl mx-auto p-4">
           {/* Refining message */}
-          {refineVizName && (
+          {refineVizName && msgRequestedType === "refine_visualizations" && (
             <div className="mb-2 flex items-center justify-end space-x-2">
               <p className="text-sm text-gray-600">Refining viz ... {refineVizName}</p>
               <button
@@ -319,6 +384,7 @@ const ChatArea: React.FC<ChatAreaProps> = ({ initialMessages, onDataReceived, on
               placeholder={refineVizName ? `Refining ${refineVizName}...` : "What would you like to ask?"}
               className="flex-1 p-3 bg-transparent focus:outline-none"
             />
+            
             <button
               type="button"
               onClick={() => document.getElementById('file-upload')?.click()}
@@ -326,12 +392,14 @@ const ChatArea: React.FC<ChatAreaProps> = ({ initialMessages, onDataReceived, on
             >
               <Upload size={20} />
             </button>
+            
             <input
               id="file-upload"
               type="file"
               {...getInputProps()}
               className="hidden"
             />
+
             {originalData && (
               <button
                 type="button"
@@ -341,6 +409,7 @@ const ChatArea: React.FC<ChatAreaProps> = ({ initialMessages, onDataReceived, on
                 <Database size={20} />
               </button>
             )}
+            
             <button type="submit" className="p-3 text-blue-500 hover:text-blue-600 focus:outline-none">
               <Send size={20} />
             </button>
@@ -349,31 +418,14 @@ const ChatArea: React.FC<ChatAreaProps> = ({ initialMessages, onDataReceived, on
       </div>
       {uploadMutation.isPending && <p className="text-center">Uploading...</p>}
 
-      {/* Data Drawer */}
       {isDataDrawerOpen && originalData && apiData && (
-        <div className="fixed inset-y-0 right-0 w-1/2 bg-white shadow-lg transition-transform duration-300 ease-in-out overflow-hidden">
-          <div className="h-full flex flex-col">
-            <div className="p-4 border-b flex flex-col items-center">
-              <h2 className="text-xl font-semibold">CSV Data Preview</h2>
-              <p className="text-sm text-gray-500 mb-4">
-                Showing your uploaded CSV data.
-              </p>
-            </div>
-            <div className="flex-grow overflow-auto">
-              <DataTable dataResponse={apiData} originalData={originalData} />
-            </div>
-            <div className="p-4 border-t">
-              <p className="text-sm text-gray-500">
-                Showing {originalData.data.length} rows.
-              </p>
-              <button 
-                onClick={toggleDataDrawer}
-                className="mt-2 px-4 py-2 bg-gray-200 text-gray-800 rounded hover:bg-gray-300 transition-colors"
-              >
-                Close
-              </button>
-            </div>
-          </div>
+        <div className="p-4">
+          <DataDrawer
+            isOpen={isDataDrawerOpen}
+            onClose={() => setIsDataDrawerOpen(false)}
+            chartData={null}
+            originalData={originalData}
+          />
         </div>
       )}
     </div>

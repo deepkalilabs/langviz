@@ -29,7 +29,8 @@ export default function ForgotPasswordPage() {
 
     setIsLoading(true)
     try {
-      const response = await fetch(`${process.env.BACKEND_URL}/api/accounts/v1/forgot-password`, {
+      const backendUrl = process.env.NEXT_PUBLIC_API_URL
+      const response = await fetch(`${backendUrl}/api/accounts/v1/forgot-password`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email }),

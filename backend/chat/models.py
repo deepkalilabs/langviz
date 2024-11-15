@@ -61,6 +61,7 @@ class AssistantMessage(models.Model):
     svg_json = models.TextField(null=True, blank=True)
     reason = models.TextField(null=True, blank=True)
     columns_involved = ArrayField(models.TextField(), null=True, blank=True)
+    extra_attrs = models.JSONField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

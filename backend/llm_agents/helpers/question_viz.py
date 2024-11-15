@@ -22,6 +22,9 @@ import numpy as np
 from chat.models import User as UserModel
 import uuid
 from typing import Optional
+from cairosvg import svg2png
+import base64
+from io import BytesIO
 
 N = 9
 openai_lm = dspy.LM('openai/gpt-4o-mini', api_key=os.environ.get('OPENAI_API_KEY'), temperature=0.001*N)
@@ -55,11 +58,23 @@ class AssistantMessageBody:
     pd_code: str
     pd_viz_code: str
     svg_json: str
+    data: List[dict]
+    extra_attrs: dict
+    
+class QuestionRefiner(dspy.Signature):
+    """
+        Given the schema of the master dataset, the chat context, and a question, return a list of 2 refined questions (list[str]) that are more specific and informative. The refined question should lead to effective exploratory and descriptive data analysis and visualization. Only return a list of 2 questions (List[str]). Output begins with [ and ends with ].
+        
+    """
+    enriched_dataset_schema = dspy.InputField(desc="The enriched schema of the entire dataset.")
+    question = dspy.InputField(desc="The question to be refined.")
+    chat_context = dspy.InputField(desc="The chat context of the user & agent interactions previously.")
+    questions: list[str] = dspy.OutputField(format=list, desc="List of 2 refined questions that are more specific and informative.")
     
 
 class VisualizationRecommender(dspy.Signature):
     """
-        Given the schema of the dataset and a question, return a list of 4 distinct well-thought visualization_types to help understand the question, the columns involved, and the reason for recommendation. Visualizations must be from the following list: [area_chart, line_chart, bar_chart, pie_chart, scatter_plot_chart, hexbin_chart]. The returned object should follow the Visualization class structure.
+        Given the schema of the dataset and a question, return a list of 2 distinct well-thought visualization_types to help understand the question, the columns involved, and the reason for recommendation. Visualizations must be from the following list: [area_chart, line_chart, bar_chart, pie_chart, scatter_plot_chart, hexbin_chart]. The returned object should follow the Visualization class structure.
         
         class Visualization(BaseModel):
             visualization_type: str
@@ -68,8 +83,8 @@ class VisualizationRecommender(dspy.Signature):
     """
     schema = dspy.InputField(desc="The schema of the dataset.")
     question = dspy.InputField(desc="The question to be answered.")
-    visualizations: list[Visualization] = dspy.OutputField(desc="List of dictionaries (List[Dict]) with visualizations, columns involved & reason for the visualization.")
-    
+    visualizations: list[Visualization] = dspy.OutputField(format=list, desc="List of dictionaries (List[Dict]) with visualizations, columns involved & reason for the visualization.")
+
 class VisualizationRefiner(dspy.Signature):
     """
         A user wants to refine context from an existing conversation. 
@@ -88,7 +103,13 @@ class VisualizationRefiner(dspy.Signature):
     
 class PandasTransformationCode(dspy.Signature):
     """
-        Given the schema of the master dataset, a type of visualization and its docs, and columns involved in the visualization, generate the pandas code to extract and tranform the data in dataframe df. Use the df variable from local namespace to extract the data. return the df in the fomrat that is compatible with the visualization docs. Do not change the column names.
+        Given the schema of the master dataset, a type of visualization and its docs, and columns involved in the visualization, generate the pandas code to extract, clean, and transform the data in dataframe df using best practices. Follow the instructions strictly:
+        
+        1. Use the df variable from local namespace to extract the data. 
+        2. Return the df in the fomrat that is compatible with the visualization docs. 
+        3. Do not change the column names.
+        4. 'pd', 'df', 'plt', 'np', 'save_file_name' are in the local namespace.
+        5. Remove NaNs, Infs, Nulls, and other invalid values.
     """
     enriched_dataset_schema = dspy.InputField(desc="The enriched schema of the entire dataset")
     visualization_type = dspy.InputField(desc="Type of visualization to be generated")
@@ -104,7 +125,7 @@ class PandasVisualizationCode(dspy.Signature):
         Given a visualization type, details of columns involved in the visualization, and sample docs for pandas code to generate this visualization, return well-thought and clean pandas code to generate this visualization using best practices. Please follow the following instructions strictly:
         
         1. This visualization should be saved as an svg using the save_file_name.
-        2. Use best practices to generate the visualization code for pandas.
+        2. Use best practices to generate the visualization code for pandas. Always include labels and legends.
         3. If the previous pandas code has an error, use the error_prev_pd_code and prev_pd_code to fix and rewrite the correct version of the pandas code.
         4. If the solution requires a single value (e.g. max, min, median, first, last etc), ALWAYS add a line (axvline or axhline) to the chart, ALWAYS with a legend containing the single value (formatted with 0.2F).
         5. 'pd', 'df', 'plt', 'np', 'save_file_name' are in the local namespace.
@@ -120,12 +141,86 @@ class PandasVisualizationCode(dspy.Signature):
     error_prev_pd_code = dspy.InputField(desc="Error in the previous pandas code.")
     pandas_code = dspy.OutputField(desc="Python code using Pandas to generate the visualization using the visualization docs as reference. Return variable name should be extract_viz.")
     
+class VisualizationAnalyzer():
+    """
+        Given a visualization PNG, the columns involved in the visualization, and the reason for the visualization, return a detailed analysis of the visualization.
+    """
+    # ... existing imports ...
+from openai import OpenAI
+import base64
+from io import BytesIO
+
+# Add after other class definitions
+class VisualizationAnalyzer:
+    """
+    Given a visualization PNG, the columns involved in the visualization, and the reason for the visualization, 
+    return a detailed analysis of the visualization.
+    """
+    def __init__(self):
+        self.client = OpenAI(api_key=os.environ.get('OPENAI_API_KEY'))
+        
+    def analyze(self, png_base64: str, enriched_column_properties: List[dict], reason: str) -> str:
+        """
+        Analyze a visualization using OpenAI's vision model.
+        
+        Args:
+            png_base64: PNG base64 data
+            columns_involved: List of column names used in visualization
+            reason: Reason for creating this visualization
+        
+        Returns:
+            str: Analysis of the visualization
+        """
+        try:
+            if not png_base64:
+                return "Error: No image data found"
+
+            # Construct the prompt
+            prompt = f"""You are an expert data analyst. Analyze this visualization:
+            - Details of columns: {enriched_column_properties}
+            - Purpose: {reason}
+            
+            Please provide:
+            1. A clear description of what the visualization shows
+            2. Key patterns or trends and potential reasons for them.
+            3. Any notable outliers or interesting points
+            """
+
+            # Call OpenAI Vision API
+            response = self.client.chat.completions.create(
+                model="gpt-4o-mini",
+                messages=[
+                    {
+                        "role": "user",
+                        "content": [
+                            {
+                                "type": "text",
+                                "text": prompt
+                            },
+                            {
+                                "type": "image_url",
+                                "image_url": {
+                                    "url": f"data:image/png;base64,{png_base64}"
+                                }
+                            }
+                        ]
+                    }
+                ],
+                max_tokens=500
+            )
+            
+            return response.choices[0].message.content
+
+        except Exception as e:
+            return f"Error analyzing visualization: {str(e)}"
+    
 
 class DatasetVisualizations(dspy.Module):
     def __init__(self, dataset, question: str) -> None:
         self.main_dataset = dataset
         self.viz_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'example_charts_pd')
 
+        self.question_refiner = dspy.ChainOfThought(QuestionRefiner)
         self.visualization_recommender = dspy.ChainOfThought(VisualizationRecommender)
         self.pandas_code_generator = dspy.ChainOfThought(PandasTransformationCode)
         self.pandas_visualization_code_generator = dspy.ChainOfThought(PandasVisualizationCode)
@@ -137,9 +232,16 @@ class DatasetVisualizations(dspy.Module):
     
     def visualization_recommender_helper(self, user_message_body: UserMessageBody):
         try:
+            visualization_list = []
             print("about to recommend visualization")
-            visualizations = self.visualization_recommender(schema=self.main_dataset.enriched_dataset_schema, question=user_message_body.question)
-            return visualizations
+            
+            refined_questions = self.question_refiner(enriched_dataset_schema=self.main_dataset.enriched_dataset_schema, chat_context=user_message_body.question, question=user_message_body.question)
+            
+            for question in refined_questions.questions:
+                print("new question", question)
+                visualizations = self.visualization_recommender(schema=self.main_dataset.enriched_dataset_schema, question=question)
+                visualization_list.extend(visualizations.visualizations)
+            return visualization_list
         except Exception as e:
             print("Skipping visualization recommendation because of error: ", e)
             
@@ -150,6 +252,7 @@ class DatasetVisualizations(dspy.Module):
             # TODO: Think if we need to do this for all messages in the chat session
             # TODO: Think if we need PD code here
             
+            visualization_list = []
             current_question = user_message.question
             prev_reason = assistant_message.reason
             prev_viz_name = assistant_message.viz_name
@@ -173,25 +276,42 @@ class DatasetVisualizations(dspy.Module):
                 chat_context = f"""
                     User's last questions: {last_x_questions}
                 """ + chat_context 
-                        
-            refined_visualizations = self.visualization_refiner(schema=self.main_dataset.enriched_dataset_schema, question=current_question, chat_context=chat_context)
-            return refined_visualizations
+
+            refined_questions = self.question_refiner(enriched_dataset_schema=self.main_dataset.enriched_dataset_schema, chat_context=chat_context, question=current_question)
+            for question in refined_questions.questions:
+                visualizations = self.visualization_recommender(schema=self.main_dataset.enriched_dataset_schema, question=question)
+                visualization_list.extend(visualizations.visualizations)
+            return visualization_list
         except Exception as e:
             print("Skipping visualization refinement because of error: ", e)
-    
+            
+            
+    def analyze_visualization(self, assistant_message: AssistantMessageBody):
+        analyzer = VisualizationAnalyzer()
+        enriched_column_properties = self.get_enriched_extracted_columns(assistant_message.columns_involved)
+        png_base64 = json.loads(assistant_message.svg_json).get('png_base64')
+        
+        analysis = analyzer.analyze(
+            png_base64=png_base64,
+            enriched_column_properties=enriched_column_properties,
+            reason=assistant_message.reason
+        )
+        
+        return analysis
     
     def pandas_code_generator_helper(self, enriched_dataset_schema, visualization_type, columns_involved, viz_docs):
         PANDAS_TRANSFORMATION_TEMPLATE_CODE = """
-            import pandas as pd
-            import numpy as np
-            import os
-            import csv
-            <other imports here>
-            def extract_data(df, columns_involved):
-                <insert code here>
-                return extracted_df
-                
-            extract_df = extract_data(df, columns_involved) # No code beyond this line.
+        import pandas as pd
+        import numpy as np
+        import os
+        import csv
+        # <other imports here>
+        
+        def extract_data(df, columns_involved):
+            # <insert code here>
+            return extracted_df
+            
+        extract_df = extract_data(df, columns_involved) # No code beyond this line.
         """
 
         try:
@@ -209,19 +329,19 @@ class DatasetVisualizations(dspy.Module):
             
     def pandas_visualization_code_generator_helper(self, visualization_type, enriched_column_properties, visualization_docs, prev_pd_code, error_prev_pd_code):
         PANDAS_VISUALIZATION_TEMPLATE_CODE = """
-            import pandas as pd
-            import numpy as np
-            import os
-            import csv
-            
-            <other imports here>
-            
-            figsize=(6, 4) # Charts should always be of size 6x4.
-            
-            <insert code here>
-            
-            plt.savefig(save_file_name, format='svg')
-            plt.close()
+        import pandas as pd
+        import numpy as np
+        import os
+        import csv
+        
+        # <other imports here>
+        
+        figsize=(6, 4) # Charts should always be of size 6x4.
+        
+        # <insert code here>
+        
+        plt.savefig(save_file_name, format='svg')
+        plt.close()
         """
         try:
             pandas_code = self.pandas_visualization_code_generator(
@@ -251,8 +371,8 @@ class DatasetVisualizations(dspy.Module):
         return local_namespace.get(return_var_name)
     
         
-    def get_enriched_extracted_columns(self, extracted_df):
-        extracted_df_set = set(extracted_df.columns.to_list())
+    def get_enriched_extracted_columns(self, extracted_df_columns):
+        extracted_df_set = set(extracted_df_columns)
         enriched_extracted_columns = []
         for column_details in self.main_dataset.enriched_column_properties:
             if column_details.get('column_name', '') in extracted_df_set:
@@ -275,6 +395,7 @@ class DatasetVisualizations(dspy.Module):
             visualization.columns_involved,
             viz_docs
         )
+        
         print("pd_code", pd_code)
         
         print("self.main_dataset.df", self.main_dataset)
@@ -286,10 +407,8 @@ class DatasetVisualizations(dspy.Module):
         extracted_df = self.execute_pandas_code(pd_code.pandas_code, local_namespace_pd_code, 'extract_df')
         namespace_df = extracted_df # Update the namespace df for the namespace dict
             
-        enriched_extracted_columns = self.get_enriched_extracted_columns(extracted_df)
+        enriched_extracted_columns = self.get_enriched_extracted_columns(extracted_df.columns.to_list())
         print("enriched_extracted_columns", enriched_extracted_columns)
-        # pd_viz_code = await asyncio.get_event_loop().run_in_executor(
-        #     self.executor,
 
         try_count = 0
         prev_pd_code = None
@@ -297,8 +416,8 @@ class DatasetVisualizations(dspy.Module):
         
         while try_count < 5:
             try:
-                enriched_extracted_columns = self.get_enriched_extracted_columns(extracted_df)
-                print("enriched_extracted_columns", enriched_extracted_columns)
+                enriched_extracted_columns = self.get_enriched_extracted_columns(extracted_df.columns.to_list())
+                
                 pd_viz_code = self.pandas_visualization_code_generator_helper(
                     visualization.visualization_type,
                     enriched_extracted_columns,
@@ -312,7 +431,14 @@ class DatasetVisualizations(dspy.Module):
                 with open(save_file_name, "r") as f:
                     svg_content = f.read()
                 
-                svg_json = json.dumps({'svg': svg_content})
+                # Convert SVG to PNG
+                png_bytes = svg2png(bytestring=svg_content.encode('utf-8'))
+                png_base64 = base64.b64encode(png_bytes).decode('utf-8')
+                
+                svg_json = json.dumps({
+                    'svg': svg_content,
+                    'png_base64': png_base64
+                })
                 
                 assistant_message_body = AssistantMessageBody(
                     reason=visualization.reason,
@@ -320,7 +446,9 @@ class DatasetVisualizations(dspy.Module):
                     columns_involved=visualization.columns_involved,
                     pd_code=pd_code.pandas_code,
                     pd_viz_code=pd_viz_code.pandas_code,
-                    svg_json=svg_json
+                    svg_json=svg_json,
+                    data=extracted_df.to_dict(orient='records'),
+                    extra_attrs={}
                 )
                 
                 return assistant_message_body

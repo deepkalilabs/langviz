@@ -10,15 +10,14 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import { Button } from "@/components/ui/button"
-import { DataSetApiResponse, OriginalDataSet } from './types';
+import { DataSet } from './types';
 
 
 interface DataTableProps {
-    dataResponse: DataSetApiResponse;
-    originalData: OriginalDataSet;
+    originalData: DataSet;
 }
 
-const DataTable: React.FC<DataTableProps> = ({ dataResponse, originalData }) => {
+const DataTable: React.FC<DataTableProps> = ({ originalData }) => {
   const [showAllRows, setShowAllRows] = useState(false);
   
   if (originalData.data.length === 0) return null;

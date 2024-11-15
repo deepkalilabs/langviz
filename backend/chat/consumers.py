@@ -49,6 +49,8 @@ class AssistantMessageBody:
     pd_code: str
     pd_viz_code: str
     svg_json: str
+    data: List[dict]
+    extra_attrs: dict
     
 class ChatConsumer(AsyncWebsocketConsumer):
     def __init__(self, *args, **kwargs):
@@ -76,7 +78,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
             'content': message,
             'chartData': None
         })
-
+        
     async def send_error(self, message: str):
         await self.send_json({
             'role': 'assistant',
@@ -103,6 +105,8 @@ class ChatConsumer(AsyncWebsocketConsumer):
             await self.handle_generate_visualizations(message_body)
         elif data.type == 'refine_visualizations':
             await self.handle_refine_visualization(message_body, data.reply_to_assistant_message_uuid)
+        elif data.type == 'analyze_visualization':
+            await self.handle_analyze_visualization(message_body, data.reply_to_assistant_message_uuid)
         # else:
         #     await self.send_error("Unknown message type")
         # except json.JSONDecodeError:
@@ -124,18 +128,58 @@ class ChatConsumer(AsyncWebsocketConsumer):
             
             assistant_message = await self.get_assistant_message(reply_to_assistant_message_uuid)
             
-            last_5_questions = await self.get_last_x_questions(5)
+            last_5_questions = await self.get_last_x_questions(1000)
             
             visualization_objects = self.dataset_viz_handler.visualization_refine_helper(user_message=message_body, assistant_message=assistant_message, last_x_questions=last_5_questions)
             
             print("visualization_objects", visualization_objects)
 
-            all_viz = set([viz.visualization_type for viz in visualization_objects.visualizations])
+            all_viz = set([viz.visualization_type for viz in visualization_objects])
             print("all_viz", all_viz)
 
             await self.send_ack(f"Refined visualization types: {all_viz}")
             
             await self.generate_and_send_visualizations(visualization_objects)
+        except ValueError as e:
+            print(str(e))
+            # await self.send_error(str(e))
+        except Exception as e:
+            print(f"An error occurred: {str(e)}")
+            # await self.send_error(f"An error occurred: {str(e)}")
+            
+    async def handle_analyze_visualization(self, message_body: UserMessageBody, reply_to_assistant_message_uuid: str):
+        print("message_body", message_body)
+        try: 
+            await self.send_ack("Analyzing visualization...")
+            await self.initialize_dataset_viz_handler(message_body)
+            
+            # TODO: Add analysis to the assistant message.
+            assistant_message_db = await self.get_assistant_message(reply_to_assistant_message_uuid)
+                        
+            analysis = self.dataset_viz_handler.analyze_visualization(assistant_message_db)
+            
+            assistant_message = AssistantMessageBody(
+                reason=analysis,
+                viz_name=assistant_message_db.viz_name,
+                columns_involved=assistant_message_db.columns_involved,
+                pd_code=assistant_message_db.pd_code,
+                pd_viz_code=assistant_message_db.pd_viz_code,
+                svg_json=assistant_message_db.svg_json,
+                data=[],
+                extra_attrs=assistant_message_db.extra_attrs
+            )
+            
+            print("analysis", analysis)
+            
+            visualization_response = {
+                'role': 'assistant',
+                'type': 'analyze_visualization',
+                # Using UUIDs to avoid message collisions in DB/FE.
+                'assistant_message_uuid': str(assistant_message_db.uuid),
+                **asdict(assistant_message),
+            }
+                
+            await self.send_json(visualization_response)
         except ValueError as e:
             print(str(e))
             # await self.send_error(str(e))
@@ -155,8 +199,8 @@ class ChatConsumer(AsyncWebsocketConsumer):
                 raise ValueError("Dataset visualization handler not initialized")
             
             visualization_objects = self.dataset_viz_handler.visualization_recommender_helper(user_message_body=message_body)
-
-            all_viz = set([viz.visualization_type for viz in visualization_objects.visualizations])
+            
+            all_viz = [viz.visualization_type for viz in visualization_objects]
             print("all_viz", all_viz)
 
             await self.send_ack(f"Generated visualization types: {all_viz}")
@@ -210,8 +254,9 @@ class ChatConsumer(AsyncWebsocketConsumer):
     
     @sync_to_async
     def get_assistant_message(self, reply_to_assistant_message_uuid: str):
-        assistant_message = AssistantMessageModel.objects.get(uuid=reply_to_assistant_message_uuid)
-        return assistant_message
+        assistant_message_db = AssistantMessageModel.objects.get(uuid=reply_to_assistant_message_uuid)
+        
+        return assistant_message_db
     
     @sync_to_async
     def get_last_x_questions(self, x: int):
@@ -228,6 +273,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
             svg_json=assistant_msg_body.svg_json,
             reason=assistant_msg_body.reason,
             columns_involved=assistant_msg_body.columns_involved,
+            extra_attrs=assistant_msg_body.extra_attrs,
             parent_user_message_id=self.active_user_message.id
         )
         
@@ -238,7 +284,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
         if self.dataset_viz_handler is None:
             raise ValueError("Dataset visualization handler not initialized")
         
-        for viz in visualization_objects.visualizations:
+        for viz in visualization_objects:
             try:
                 assistant_msg_body: AssistantMessageBody = await sync_to_async(self.dataset_viz_handler.generate_viz)(viz)
                 

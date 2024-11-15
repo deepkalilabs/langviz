@@ -20,8 +20,8 @@ class Command(BaseCommand):
            "reply_to_assistant_message_uuid": None
         }
         
-        sample_body = json.dumps(sample_body)
-        asyncio.run(consumer.receive(sample_body))
+        # sample_body = json.dumps(sample_body)
+        # asyncio.run(consumer.receive(sample_body))
         
         sample_body = {
           "type": "refine_visualizations",
@@ -32,8 +32,22 @@ class Command(BaseCommand):
           "reply_to_assistant_message_uuid": str(AssistantMessageModel.objects.last().uuid)
         }
         
+        # sample_body = json.dumps(sample_body)
+        # print("sample_body", sample_body)
+        # asyncio.run(consumer.receive(sample_body))
+        
+        sample_body = {
+          "type": "analyze_visualization",
+          "user_message_body": {
+            "question": "",
+            "session_id": str(chat_session.session_id),
+          },
+          "reply_to_assistant_message_uuid": str(AssistantMessageModel.objects.last().uuid)
+        }
+        
         sample_body = json.dumps(sample_body)
         print("sample_body", sample_body)
         asyncio.run(consumer.receive(sample_body))
+
 
         self.stdout.write(self.style.SUCCESS('Consumer tasks completed'))
