@@ -1,9 +1,8 @@
 import React, { useEffect } from 'react';
 import { Button } from '@/components/ui/button';
-import { ChatMessage, ChartData } from './types/local';
+import { ChatMessage } from './types/local';
 import { useState } from 'react';
 import { DataDrawer } from './DataDrawer';
-import ReactMarkdown from 'react-markdown';
 
 interface ChartContainerProps {
   message: ChatMessage;
@@ -12,17 +11,34 @@ interface ChartContainerProps {
   handleAnalyzeVisualization: () => void;
 }
 
-const SVGDisplay = React.memo((svgData: any) => {
+interface SVGDisplayProps {
+  svgData: string;  // Assuming svgData is a string containing SVG markup
+}
+
+const SVGDisplay = React.memo(({ svgData }: SVGDisplayProps) => {
   return (
-    <div dangerouslySetInnerHTML={{ __html: svgData.svgData }} />
+    <div dangerouslySetInnerHTML={{ __html: svgData }} />
   );  
 });
 
-
+SVGDisplay.displayName = 'SVGDisplay';
 const ChartContainer: React.FC<ChartContainerProps> = ({ message, setMsgRequestedType, setReplyToAssistantMessageIdx, handleAnalyzeVisualization }) => {
   const [error, setError] = useState<string | null>(null);
   const [showDataDrawer, setShowDataDrawer] = useState<boolean>(false);
   const toggleDataDrawer = () => setShowDataDrawer(!showDataDrawer);
+
+  const renderSVG = (message: ChatMessage) => {
+    try {
+      const parsedData = JSON.parse(message.chartData?.svg_json ?? '');
+      if (!parsedData || typeof parsedData.svg !== 'string') {
+        throw new Error('Invalid SVG data format');
+      }
+      return <SVGDisplay svgData={parsedData.svg} />;
+    } catch {
+      setError('Failed to parse SVG data');
+      return <p>Error loading chart</p>;
+    }
+  };
 
   useEffect(() => {
     console.log("showDataDrawer", showDataDrawer);
@@ -39,8 +55,8 @@ const ChartContainer: React.FC<ChartContainerProps> = ({ message, setMsgRequeste
               {
                 message.chartData.svg_json ? 
                 <div className="p-4 mx-4 w-full h-full justify-center items-center">
-                  {message.chartData.svg_json ? <SVGDisplay svgData={JSON.parse(message.chartData.svg_json)['svg']} /> : <p>Loading...</p>}
-                  {error && <div className="text-red-500 mt-2">Error executing code: {error}</div>}
+                  {renderSVG(message)}
+                  {error && <div className="text-red-500 mt-2">{error}</div>}
                 </div> : 
                 ""
               }

@@ -22,7 +22,7 @@ export default function SignIn() {
     email: '',
     password: ''
   })
-  const [error, setError] = useState(null)
+  const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const searchParams = useSearchParams()
   const callbackUrl = searchParams.get('callbackUrl')
@@ -40,13 +40,14 @@ export default function SignIn() {
       })
 
       if (result?.error) {
-        setError('Invalid email or password' as any)
+        setError('Invalid email or password')
       } else {
         router.push('/r/chat')
         router.refresh()
       }
     } catch (error) {
-      setError("Error signing in" as any)
+      console.error('Error signing in:', error);
+      setError("Error signing in")
     } finally {
       setLoading(false)
     }
@@ -143,7 +144,7 @@ export default function SignIn() {
             <div className="flex flex-col space-y-1">
               <Button variant="link" asChild className="px-0 font-normal">
                 <Link href="/auth/signup">
-                  Don't have an account? Sign up
+                  No account? Sign up
                 </Link>
               </Button>
               <Button variant="link" asChild className="px-0 font-normal">

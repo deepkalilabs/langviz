@@ -17,7 +17,7 @@ const handler = NextAuth({
         email: { label: "Email", type: "email" },
         password: { label: "Password", type: "password" }
       },
-      async authorize(credentials) {
+      async authorize(credentials: Record<"email" | "password", string>) {
         if (!credentials?.email || !credentials?.password) {
           throw new Error('Please provide both email and password');
         }
@@ -51,9 +51,9 @@ const handler = NextAuth({
           }
           return null;
 
-        } catch (error: any) {
-          console.error("Login error:", error.response?.data || error.message);
-          throw new Error(error.response?.data?.message || 'Authentication failed');
+        } catch (error) {
+          console.error("Login error:", error);
+          throw new Error('Authentication failed');
         }
       }
     })
@@ -62,7 +62,7 @@ const handler = NextAuth({
     signIn: '/auth/signin',
   },
   callbacks: {
-    async jwt({ token, user, account }) {
+    async jwt({ token, user }) {
       // Initial sign in
       if (user && 'accessToken' in user && 'refreshToken' in user) {
         token.accessToken = user.accessToken;

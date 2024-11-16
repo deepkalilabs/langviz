@@ -42,6 +42,7 @@ export default function ForgotPasswordPage() {
 
       setSuccess(true)
     } catch (err) {
+      console.error('Error sending reset email:', err);
       setError('Failed to send reset email. Please try again.')
     } finally {
       setIsLoading(false)
@@ -54,13 +55,13 @@ export default function ForgotPasswordPage() {
         <CardHeader>
           <CardTitle>Forgot Password</CardTitle>
           <CardDescription>
-            Enter your email address and we'll send you a link to reset your password
+            Enter your email address and we will send you a link to reset your password
           </CardDescription>
         </CardHeader>
         <CardContent>
           {success ? (
             <div className="text-sm text-green-600">
-              If an account exists with that email, we've sent you instructions to reset your password.
+              If an account exists with that email, we have sent you instructions to reset your password.
             </div>
           ) : (
             <form onSubmit={handleSubmit} className="space-y-4">

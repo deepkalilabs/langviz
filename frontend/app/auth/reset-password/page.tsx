@@ -25,6 +25,7 @@ export default function ResetPasswordPage() {
   const searchParams = useSearchParams()
   const token = searchParams.get('token')
   const router = useRouter()
+  const backendUrl = process.env.NEXT_PUBLIC_API_URL
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError('')
@@ -44,7 +45,6 @@ export default function ResetPasswordPage() {
 
     setIsLoading(true)
     try {
-      const backendUrl = process.env.NEXT_PUBLIC_API_URL
       console.log("backendUrl", backendUrl)
       const response = await fetch(`${backendUrl}/api/accounts/v1/reset-password`, {
         method: 'POST',
@@ -58,6 +58,7 @@ export default function ResetPasswordPage() {
       // Redirect to login page or show success message
       router.push('/auth/signin')
     } catch (err) {
+      console.error('Error resetting password:', err);
       setError('Failed to reset password. Please try again.')
     } finally {
       setIsLoading(false)

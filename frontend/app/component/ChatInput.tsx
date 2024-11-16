@@ -1,4 +1,3 @@
-import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 
@@ -11,7 +10,11 @@ interface ChatInputProps {
   setReplyToAssistantMessageIdx: React.Dispatch<React.SetStateAction<string | null>>;
 }
 
-function XIcon(props: any) {
+interface XIconProps {
+  className: string;
+}
+
+function XIcon(props: XIconProps) {
     return (
         <svg
           {...props}

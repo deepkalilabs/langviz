@@ -37,13 +37,14 @@
     "react-papaparse": "^4.4.0",
     "react-syntax-highlighter": "^15.6.1",
     "react-use-websocket": "^4.9.0",
-    "shadcn": "^2.1.6",
+    "shadcn": "^1.0.0",
     "tailwind-merge": "^2.5.2",
     "tailwindcss-animate": "^1.0.7",
-    "uuid": "^10.0.0",
+    "uuid": "^11.0.3",
     "vaul": "^1.1.1"
   },
   "devDependencies": {
+    "@types/lodash": "^4.17.13",
     "@types/node": "^20",
     "@types/react": "^18",
     "@types/react-dom": "^18",

@@ -1,31 +1,33 @@
-import React, { useState, useRef, useEffect, useCallback, useMemo, use } from 'react';
+import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { Send, Upload, Database, XIcon } from 'lucide-react';
 import { useDropzone } from 'react-dropzone';
 import axios from 'axios';
 import { useMutation } from '@tanstack/react-query';
 import Papa from 'papaparse';
 import useWebSocket from 'react-use-websocket';
-import DataTable from '../../../component/DataTable';
 import ChartContainer from '../../../component/ChartContainer';
 import { DataDrawer } from '../../../component/DataDrawer';
-import { DataSetApiResponse, OriginalDataSet, ChatProps, ChatMessage, ChartData } from '../../../component/types';
-import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
+import { DataSetApiResponse, ChatMessage, ChartData, DataSet } from '../../../component/types';
+import { S3Client } from '@aws-sdk/client-s3';
 import { Upload as S3Upload } from '@aws-sdk/lib-storage';
 import { v4 as uuidv4 } from 'uuid';
-import { throttle } from 'lodash'; // Add this import
-import { debug } from 'console';
+import throttle from 'lodash';
 import ReactMarkdown from 'react-markdown';
-import AnalyzeChartContainer from '../../../component/AnalyzeChartContainer';
 
 interface ChatAreaProps {
   initialMessages: ChatMessage[];
-  onDataReceived: (originalData: OriginalDataSet, apiData: DataSetApiResponse) => void;
+  onDataReceived: (originalData: DataSet, apiData: DataSetApiResponse) => void;
   onUploadComplete: () => void;
 }
 
 interface ParsedData {
   file: File;
   data: Record<string, string | number | boolean | null>[];
+}
+
+interface ChatMessageProps {
+  message: ChatMessage;
+  key: number;
 }
 
 const URL = 'ws://0.0.0.0:8000/ws/chat/';
@@ -62,20 +64,21 @@ const UploadFileS3 = async (file: File) => {
   return { s3Uri, publicUrl };
 }
 
-const ChatArea: React.FC<ChatAreaProps> = ({ initialMessages, onDataReceived, onUploadComplete }) => {
+const ChatArea: React.FC<ChatAreaProps> = ({ initialMessages }) => {
   const [messages, setMessages] = useState<ChatMessage[]>(initialMessages);
-  const [message, setMessage] = useState<ChatMessage | null>(null);
   const [input, setInput] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const [apiData, setApiData] = useState<DataSetApiResponse | null>(null);
-  const [originalData, setOriginalData] = useState<OriginalDataSet | null>(null);
+  const [originalData, setOriginalData] = useState<DataSet | null>(null);
   const [isDataDrawerOpen, setIsDataDrawerOpen] = useState(false);
   const [replyToAssistantMessageIdx, setReplyToAssistantMessageIdx] = useState<string | null>(null);
   const [msgRequestedType, setMsgRequestedType] = useState<string | null>(null);
   const [chartSelected, setChartSelected] = useState<ChartData | null>(null);
   const [refineVizName, setRefineVizName] = useState<string | null>(null);
 
-  const { sendMessage, lastMessage, readyState } = useWebSocket(URL);
+  const { sendMessage, lastMessage } = useWebSocket(URL);
+
+  const backendUrl = process.env.NEXT_PUBLIC_API_URL
 
   useEffect(() => {
     if (lastMessage !== null) {
@@ -124,21 +127,21 @@ const ChatArea: React.FC<ChatAreaProps> = ({ initialMessages, onDataReceived, on
 
   useEffect(() => {
     if (replyToAssistantMessageIdx !== null) {
-      const msg_len = messages.length
-    for (let i = msg_len - 1; i >= 0; i--) {
+      const msg_len = messages.length;
+      for (let i = msg_len - 1; i >= 0; i--) {
         if (messages[i].chartData?.assistant_message_uuid === replyToAssistantMessageIdx) {
-          setChartSelected(messages[i]?.chartData ?? null)
-          setRefineVizName(messages[i]?.chartData?.viz_name ?? null)
+          setChartSelected(messages[i]?.chartData ?? null);
+          setRefineVizName(messages[i]?.chartData?.viz_name ?? null);
           break;
         }
       }
     } else if (replyToAssistantMessageIdx === null) {
-      setChartSelected(null)
-      setRefineVizName(null)
+      setChartSelected(null);
+      setRefineVizName(null);
     }
-  }, [replyToAssistantMessageIdx])
+  }, [replyToAssistantMessageIdx, messages]);
 
-  const handleDataReceived = useCallback((originalData: OriginalDataSet, apiData: DataSetApiResponse) => {
+  const handleDataReceived = useCallback((originalData: DataSet, apiData: DataSetApiResponse) => {
     console.log('Papa parsed data:', originalData);
     setOriginalData(originalData);
     setApiData(apiData);
@@ -149,8 +152,9 @@ const ChatArea: React.FC<ChatAreaProps> = ({ initialMessages, onDataReceived, on
     setIsDataDrawerOpen(true);
   }, [isDataDrawerOpen]);
 
+  // Throttle the scroll to bottom to prevent excessive re-renders
   const throttledScrollToBottom = useCallback(
-    throttle(() => {
+    throttle.throttle(() => {
       messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
     }, 100),
     []
@@ -226,7 +230,7 @@ const ChatArea: React.FC<ChatAreaProps> = ({ initialMessages, onDataReceived, on
       }]);
 
       const response = await axios.post<DataSetApiResponse>(
-        'http://localhost:8000/api/chat/chat-sessions/',
+        `${backendUrl}/api/chat/chat-sessions/`,
         formData,
         {
           headers: { 'Content-Type': 'multipart/form-data' },
@@ -236,7 +240,7 @@ const ChatArea: React.FC<ChatAreaProps> = ({ initialMessages, onDataReceived, on
       return { originalData: data, apiData: response.data };
     },
     onSuccess: ({ originalData, apiData }) => {
-      const originalDataSet: OriginalDataSet = {
+      const originalDataSet: DataSet = {
         data: originalData,
         name: 'Uploaded CSV',
         description: 'Data uploaded via CSV',
@@ -274,14 +278,14 @@ const ChatArea: React.FC<ChatAreaProps> = ({ initialMessages, onDataReceived, on
         },
         header: true,
         dynamicTyping: true,
-        error: (error: any) => {
+        error: (error) => {
           console.error('Error parsing CSV:', error);
         },
       });
     }
   }, [uploadMutation]);
 
-  const { getRootProps, getInputProps, isDragActive } = useDropzone({
+  const { getRootProps, getInputProps } = useDropzone({
     onDrop,
     accept: { "text/csv": [".csv"] },
     noClick: true,
@@ -293,7 +297,7 @@ const ChatArea: React.FC<ChatAreaProps> = ({ initialMessages, onDataReceived, on
     setIsDataDrawerOpen(!isDataDrawerOpen);
   };
 
-  const ChatMessageMemoized = useMemo(() => React.memo(({ message, key }: { message: ChatMessage, key: number }) => {
+  const ChatMessageComponent: React.FC<ChatMessageProps> = ({ message, key }) => {
     return (
       <div key={key} className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}>
         {message.role === 'assistant' && !message.chartData?.svg_json && (
@@ -341,8 +345,12 @@ const ChatArea: React.FC<ChatAreaProps> = ({ initialMessages, onDataReceived, on
           </div>
         )}
       </div>
-    )
-  }), [handleAnalyzeVisualization]);
+    );
+  };
+
+  
+  ChatMessageComponent.displayName = 'ChatMessageComponent';
+  const ChatMessageMemoized = useMemo(() => React.memo(ChatMessageComponent), []);
 
   return (
     <div className="flex flex-col h-full">

@@ -2,7 +2,6 @@
 import { useState } from 'react'
 import { signIn } from "next-auth/react"
 import Link from 'next/link'
-import { useRouter} from 'next/navigation'
 import { Button } from "@/components/ui/button"
 import {
   Card,
@@ -22,59 +21,64 @@ interface SignUpData {
   password: string
 }
 
+interface ApiError {
+  detail?: string;
+  [key: string]: string | undefined;
+}
+
 export default function SignUp() {
-  const router = useRouter()
   const [formData, setFormData] = useState<SignUpData>({
     email: '',
     password: ''
-  })
-  const [error, setError] = useState(null)
-  const [successMessage, setSuccessMessage] = useState(null)
-  const [isEmailSent, setIsEmailSent] = useState(false)
-  const [isLoading, setIsLoading] = useState(false)
+  });
+  const [error, setError] = useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+  // TODO: Figure out why this is not working
+  const backendUrl = process.env.NEXT_PUBLIC_API_URL;
+
+  console.log("backendUrl", backendUrl);
 
   const handleEmailSignup = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault()
-    setError(null)
-    setSuccessMessage(null)
-    setIsEmailSent(false)
-    setIsLoading(true)
+    e.preventDefault();
+    setError(null);
+    setSuccessMessage(null);
+    setIsLoading(true);
 
     try {
-      const response = await fetch("http://localhost:8000/api/accounts/v1/signup", {
+      const response = await fetch(`${backendUrl}/api/accounts/v1/signup`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Accept': 'application/json',
         },
         body: JSON.stringify(formData),
-      })
+      });
 
-      const data = await response.json()
+      const data = await response.json() as ApiError;
 
       if (response.ok) {
-        setSuccessMessage("User created successfully. Please check your email for verification." as any)
-        setIsEmailSent(true)
-        setFormData({ email: '', password: '' })
+        setSuccessMessage("User created successfully. Please check your email for verification.");
+        setFormData({ email: '', password: '' });
         await signIn('credentials', {
           email: formData.email,
           password: formData.password,
           redirect: false,
-        })
+        });
       } else {
-        setError(data.detail || Object.values(data).join(', ') as any || "Registration failed")
+        setError(data.detail || Object.values(data).join(', ') || "Registration failed");
       }
     } catch (error) {
-      console.error('Error signing up:', error)
+      console.error('Error signing up:', error);
     } finally {
-      setIsLoading(false)
+      setIsLoading(false);
     }
   }
 
   const handleGoogleSignin = async () => {
-    setIsLoading(true)
-    setError(null)
-    await signIn('google', { callbackUrl: '/r/chat' })
+    setIsLoading(true);
+    setError(null);
+    await signIn('google', { callbackUrl: '/r/chat' });
   }
 
   return (

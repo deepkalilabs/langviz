@@ -9,6 +9,7 @@ export default function VerifyEmail() {
     const [status, setStatus] = useState<'loading' | 'success' | 'error'>('loading')
     const [message, setMessage] = useState('')
 
+
     useEffect(() => {
         const verifyEmail = async () => {
             const token = searchParams.get('token')
@@ -19,8 +20,10 @@ export default function VerifyEmail() {
             }
 
             try {
+                const backendUrl = process.env.NEXT_PUBLIC_API_URL
+
                 const response = await fetch(
-                    `http://localhost:8000/api/accounts/v1/verify-email`,
+                    `${backendUrl}/api/accounts/v1/verify-email`,
                     {
                         method: 'POST',
                         headers: {
@@ -44,6 +47,7 @@ export default function VerifyEmail() {
                     setMessage(data.error || 'Verification failed')
                 }
             } catch (error) {
+                console.log("error", error);
                 setStatus('error')
                 setMessage('An error occurred during verification.')
             }

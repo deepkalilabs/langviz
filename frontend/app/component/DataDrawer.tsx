@@ -4,20 +4,17 @@ import React from "react"
 import { X } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
-import { DataSetApiResponse, DataSet, ChartData } from "./types";
+import { DataSet, ChartData } from "./types";
 import { useState, useEffect } from "react";
 
 import {
   Drawer,
   DrawerClose,
   DrawerContent,
-  DrawerDescription,
   DrawerFooter,
   DrawerHeader,
-  DrawerTitle,
-  DrawerTrigger,
 } from "@/components/ui/drawer"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 
 
@@ -39,10 +36,14 @@ export function DataDrawer({ isOpen, onClose, originalData, chartData }: DataDra
     pd_viz_code: vizCode, 
     data: subsetChartData } = chartData ?? {};
 
-  const [activeData, setActiveData] = useState<any>(chartData ?? originalData);
+  //const [activeData, setActiveData] = useState<any>(chartData ?? originalData);
   const [activeTab, setActiveTab] = useState<string>("data");
+  const activeData = chartData ?? originalData;
 
   console.log("activeData", activeData);
+  console.log("pandasCode", pandasCode);
+  console.log("vizCode", vizCode);
+  console.log("subsetChartData", subsetChartData);
 
   useEffect(() => {
     console.log("activetab", activeTab);

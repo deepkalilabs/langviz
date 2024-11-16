@@ -1,23 +1,26 @@
 'use client'
 
 import React, { useState, useCallback, useEffect } from 'react';
-import axios from 'axios';
 import DataTable from './DataTable';
-import { DataSetApiResponse, OriginalDataSet, ChatProps, ChatMessage, ChartData } from './types';
+import { ChatProps, ChatMessage, ChartData } from './types';
 import { useMutation } from '@tanstack/react-query';
 import ChartContainer from './ChartContainer'; // Assuming ChartContainer is defined in the same directory
 import useWebSocket from 'react-use-websocket';
 import ChatInput from './ChatInput';
 
+// TODO: Add backend websocket URL to .env
 const URL = 'ws://0.0.0.0:8000/ws/chat/';
 
 const Chat: React.FC<ChatProps> = ({ originalData, dataResponse }) => {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState('');
-  const [showDataTable, setShowDataTable] = useState(false);
-  const [csvData, setCsvData] = useState<any>(originalData);
-  const [socketURL, setSocketURL] = useState(URL);
-  const { sendMessage, lastMessage, readyState } = useWebSocket(socketURL); 
+  //const [showDataTable, setShowDataTable] = useState(false);
+  //const [csvData, setCsvData] = useState<DataSet>(originalData);
+  //const [socketURL, setSocketURL] = useState(URL);
+  const showDataTable = false;
+  const csvData = originalData;
+  const socketURL = URL;
+  const { sendMessage, lastMessage } = useWebSocket(socketURL); 
   const [ replyToAssistantMessageIdx, setReplyToAssistantMessageIdx ] = useState<string | null>(null);
   const [ chartSelected, setChartSelected ] = useState<ChartData | null>(null);
   const [ refineVizName, setRefineVizName ] = useState<string | null>(null);
@@ -38,6 +41,7 @@ const Chat: React.FC<ChatProps> = ({ originalData, dataResponse }) => {
         if (messages[i].chartData?.assistant_message_uuid === replyToAssistantMessageIdx) {
           setChartSelected(messages[i]?.chartData ?? null)
           setRefineVizName(messages[i]?.chartData?.viz_name ?? null)
+          console.log("chartSelected", chartSelected);
           break;
         }
       }
@@ -59,6 +63,7 @@ const Chat: React.FC<ChatProps> = ({ originalData, dataResponse }) => {
             viz_name: message_received.viz_name,
             pd_code: message_received.pd_code,
             pd_viz_code: message_received.pd_viz_code,
+            data: message_received.data,
             svg_json: message_received.svg_json,
             assistant_message_uuid: message_received.assistant_message_uuid
           }
@@ -73,9 +78,8 @@ const Chat: React.FC<ChatProps> = ({ originalData, dataResponse }) => {
       }
     }
   }, [lastMessage]);
-
-  const sendMessageMutation = useMutation({
-    mutationFn: async (question: string) => {
+  const sendMessageMutation = useMutation<ChatMessage, Error, string>({
+    mutationFn: async (question: string): Promise<ChatMessage> => {
       // TODO: Add chat history
       // TODO: Only send message Idx and fetch the messages from the server
 
@@ -93,8 +97,9 @@ const Chat: React.FC<ChatProps> = ({ originalData, dataResponse }) => {
         setRefineVizName(null);
       }
 
-      const serverMsg = sendMessage(serverMsgBody);
-      return serverMsg;
+      // sendMessage returns void, so we create a placeholder ChatMessage
+      sendMessage(serverMsgBody);
+      return { role: 'assistant', content: '', type: 'ack' };
     },
     onSuccess: (serverMsg: ChatMessage) => {
       // setChartData(data);
@@ -147,7 +152,7 @@ const Chat: React.FC<ChatProps> = ({ originalData, dataResponse }) => {
       
       {showDataTable && (
         <div className="p-4 border-t border-b">
-          <DataTable dataResponse={dataResponse} originalData={originalData} />
+          <DataTable originalData={originalData} />
         </div>
       )}
     </div>

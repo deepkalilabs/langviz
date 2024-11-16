@@ -5,10 +5,10 @@ import { useDropzone } from 'react-dropzone';
 import axios from 'axios';
 import { useMutation } from '@tanstack/react-query';
 import Papa from 'papaparse';
-import { DataSetApiResponse, OriginalDataSet } from './types';
+import { DataSetApiResponse, DataSet } from './types';
 
 interface UploadCSVProps {
-  onDataReceived: (originalData: OriginalDataSet, apiData: DataSetApiResponse) => void;
+  onDataReceived: (originalData: DataSet, apiData: DataSetApiResponse) => void;
   onUploadComplete: () => void;
 }
 
@@ -19,6 +19,7 @@ interface ParsedData {
 
 
 const UploadCSV: React.FC<UploadCSVProps> = ({ onDataReceived, onUploadComplete }) => {
+  const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL;
   const uploadMutation = useMutation({
     mutationFn: async ({ file, data }: ParsedData) => {
       const formData = new FormData();
@@ -29,7 +30,7 @@ const UploadCSV: React.FC<UploadCSVProps> = ({ onDataReceived, onUploadComplete 
       //formData.append('data', JSON.stringify(data));
 
       const response = await axios.post<DataSetApiResponse>(
-        'http://localhost:8000/api/chat/chat-sessions/',
+        `${backendUrl}/api/chat/chat-sessions/`,
         formData,
         {
           headers: { 'Content-Type': 'multipart/form-data' },
@@ -38,7 +39,7 @@ const UploadCSV: React.FC<UploadCSVProps> = ({ onDataReceived, onUploadComplete 
       return { originalData: data, apiData: response.data };
     },
     onSuccess: ({ originalData, apiData }) => {
-      const originalDataSet: OriginalDataSet = {
+      const originalDataSet: DataSet = {
         data: originalData,
         name: 'Uploaded CSV',
         description: 'Data uploaded via CSV',
@@ -67,7 +68,7 @@ const UploadCSV: React.FC<UploadCSVProps> = ({ onDataReceived, onUploadComplete 
         },
         header: true,
         dynamicTyping: true,
-        error: (error: any) => {
+        error: (error) => {
           console.error('Error parsing CSV:', error);
           },
         });
