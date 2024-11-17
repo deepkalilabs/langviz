@@ -1,0 +1,29 @@
+cat > ../.hooks/pre-commit << 'EOL'
+#!/bin/sh
+
+echo "🏗️ Running frontend build"
+
+# Save the current working directory
+current_dir=$(pwd)
+
+# Navigate to repository root
+cd "$(git rev-parse --show-toplevel)" || exit 1
+
+# Go to frontend directory and build
+cd frontend || exit 1
+yarn build
+BUILD_EXIT_CODE=$?
+
+# Return to original directory
+cd "$current_dir"
+
+if [ $BUILD_EXIT_CODE -ne 0 ]; then
+  echo "❌ Frontend build failed, commit aborted"
+  exit 1
+fi
+
+
+echo "✅ Frontend build successful"
+exit 0
+EOL
+
