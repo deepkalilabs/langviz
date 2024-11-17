@@ -1,4 +1,3 @@
-cat > scripts/setup-hooks.sh << 'EOL'
 #!/bin/sh
 
 # Get the git root directory
@@ -9,4 +8,3 @@ ln -sf "../.hooks/pre-commit" "$GIT_ROOT/hooks/pre-commit"
 chmod +x ../.hooks/pre-commit
 
 echo "Git hooks installed succesfully!"
-EOL
