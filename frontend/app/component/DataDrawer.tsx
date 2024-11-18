@@ -15,7 +15,7 @@ import {
   DrawerHeader,
 } from "@/components/ui/drawer"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import SyntaxHighlighter from 'react-syntax-highlighter';
+import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 
 
 import DataTable from "./DataTable" // Assuming this is the correct import path
