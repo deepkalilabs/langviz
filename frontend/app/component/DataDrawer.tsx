@@ -15,7 +15,7 @@ import {
   DrawerHeader,
 } from "@/components/ui/drawer"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
+import SyntaxHighlighter from 'react-syntax-highlighter';
 
 
 import DataTable from "./DataTable" // Assuming this is the correct import path
@@ -60,30 +60,28 @@ export function DataDrawer({ isOpen, onClose, originalData, chartData }: DataDra
               <TabsTrigger value="pd_viz_code" disabled={vizCode === undefined}>Viz Code</TabsTrigger>
             </TabsList>
           </Tabs>
-            {/* <DrawerTitle className="text-xl font-semibold">CSV Data Preview</DrawerTitle>
-            <DrawerDescription className="text-sm text-muted-foreground">
-            Showing your uploaded CSV data.
-          </DrawerDescription> */}
         </DrawerHeader>
         
         {activeTab === "data" && (
           <div className="flex-grow overflow-auto p-4">
-            {activeData?.data && <DataTable originalData={activeData} />}
+            {activeData?.data && <DataTable originalData={activeData as DataSet} />}
           </div>
         )}
         {activeTab === "pd_code" && (
           <div className="flex-grow overflow-auto p-4">
-            <SyntaxHighlighter language="python">{chartData?.pd_code}</SyntaxHighlighter>
+            <SyntaxHighlighter language="python">{chartData?.pd_code || ''}</SyntaxHighlighter>
           </div>
         )}
         {activeTab === "pd_viz_code" && (
           <div className="flex-grow overflow-auto p-4">
-            <SyntaxHighlighter language="python">{chartData?.pd_viz_code}</SyntaxHighlighter>
+            <SyntaxHighlighter language="python">{chartData?.pd_viz_code || ''}</SyntaxHighlighter>
           </div>
         )}
         <DrawerFooter className="border-t">
           <p className="text-sm text-muted-foreground">
-            {activeData?.data && activeTab === "data" && `Showing ${activeData?.data?.length} rows & ${Object.keys(activeData?.data[0]).length} columns.`}
+            {activeData?.data && Array.isArray(activeData.data) && activeData.data.length > 0 && activeTab === "data" && 
+              `Showing ${activeData.data.length} rows & ${Object.keys(activeData.data[0]).length} columns.`
+            }
           </p>
           <DrawerClose asChild>
             <Button variant="outline">Close</Button>

@@ -15,8 +15,17 @@ import {
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Icons } from '@/components/ui/icons';
+import { Suspense } from 'react'
 
-export default function SignIn() {
+export default function SignInPage() {
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <SignInContent />
+    </Suspense>
+  )
+}
+
+function SignInContent() {
   const router = useRouter()
   const [formData, setFormData] = useState({
     email: '',

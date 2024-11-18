@@ -8,6 +8,7 @@ import ChartContainer from './ChartContainer'; // Assuming ChartContainer is def
 import useWebSocket from 'react-use-websocket';
 import ChatInput from './ChatInput';
 
+
 // TODO: Add backend websocket URL to .env
 const URL = 'ws://0.0.0.0:8000/ws/chat/';
 
@@ -129,6 +130,8 @@ const Chat: React.FC<ChatProps> = ({ originalData, dataResponse }) => {
     return <div>Loading chart data and configuration...</div>;
   }
 
+
+
   return (
     <div className="flex flex-col h-full">
       <div className="flex-grow overflow-y-auto p-4">
@@ -141,7 +144,7 @@ const Chat: React.FC<ChatProps> = ({ originalData, dataResponse }) => {
             {message.chartData?.svg_json && (
               // TODO: Better type handling for chartData
               <div className="mt-4">
-                <ChartContainer message={message} replyToAssistantMessageIdx={replyToAssistantMessageIdx} setReplyToAssistantMessageIdx={setReplyToAssistantMessageIdx} />
+                <ChartContainer message={message} setReplyToAssistantMessageIdx={setReplyToAssistantMessageIdx} setMsgRequestedType={() => null} handleAnalyzeVisualization={() => null} />
               </div>
             )}
           </div>

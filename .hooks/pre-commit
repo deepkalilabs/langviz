@@ -1,4 +1,3 @@
-cat > ../.hooks/pre-commit << 'EOL'
 #!/bin/sh
 
 echo "🏗️ Running frontend build"
@@ -25,5 +24,3 @@ fi
 
 echo "✅ Frontend build successful"
 exit 0
-EOL
-

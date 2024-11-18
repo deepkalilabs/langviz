@@ -13,9 +13,17 @@ import {
 } from '@/components/ui/card'
 import { Eye, EyeOff } from 'lucide-react' // Add this import at the top
 import { useRouter } from 'next/navigation'
-
+import { Suspense } from 'react'
 
 export default function ResetPasswordPage() {
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <ResetPasswordContent />
+    </Suspense>
+  )
+}
+
+function ResetPasswordContent() {
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
   const [error, setError] = useState('')
@@ -26,6 +34,7 @@ export default function ResetPasswordPage() {
   const token = searchParams.get('token')
   const router = useRouter()
   const backendUrl = process.env.NEXT_PUBLIC_API_URL
+  
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError('')

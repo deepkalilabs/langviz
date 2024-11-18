@@ -3,7 +3,7 @@ import CredentialsProvider from "next-auth/providers/credentials"
 import axios from 'axios'
 
 type User = {
-  id: number;
+  id: string;
   email: string;
   accessToken: string;
   refreshToken: string;
@@ -17,7 +17,7 @@ const handler = NextAuth({
         email: { label: "Email", type: "email" },
         password: { label: "Password", type: "password" }
       },
-      async authorize(credentials: Record<"email" | "password", string>) {
+      authorize: async (credentials) => {
         if (!credentials?.email || !credentials?.password) {
           throw new Error('Please provide both email and password');
         }
@@ -41,7 +41,7 @@ const handler = NextAuth({
           if (response.status === 200) {
             // Return user data AND tokens
             const user: User = {
-              id: response.data.user.id,
+              id: response.data.user.id.toString(),
               email: response.data.user.email,
               accessToken: response.data.token.access_token,
               refreshToken: response.data.token.refresh_token,
@@ -76,11 +76,8 @@ const handler = NextAuth({
       // Send properties to the client
       session.user = {
         email: token.email,
-        id: token.id as number,
-        accessToken: token.accessToken as string,
-        refreshToken: token.refreshToken as string
       };
-      return session;
+      return session 
     }
   },
   // Increase session lifetime if needed

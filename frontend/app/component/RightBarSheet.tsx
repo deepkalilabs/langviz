@@ -3,11 +3,11 @@
 import React, { useState, useEffect } from 'react';
 import DataTable from './DataTable';
 import Chat from './Chat';
-import { DataSetApiResponse, OriginalDataSet } from './types';
+import { DataSetApiResponse, DataSet } from './types';
 
 interface RightBarSheetProps {
   dataResponse: DataSetApiResponse;
-  originalData: OriginalDataSet;
+  originalData: DataSet;
   isOpen: boolean;
   onOpenChange: (isOpen: boolean) => void;
 }
@@ -37,7 +37,7 @@ const RightBarSheet: React.FC<RightBarSheetProps> = ({ dataResponse, originalDat
           </button>
         </div>
         <div className="flex-grow overflow-auto">
-          {showChat ? <Chat dataResponse={dataResponse} originalData={originalData} /> : <DataTable dataResponse={dataResponse} originalData={originalData} />}
+          {showChat ? <Chat dataResponse={dataResponse} originalData={originalData} /> : <DataTable originalData={originalData} />}
         </div>
         <div className="p-4 border-t">
           <p className="text-sm text-gray-500">
