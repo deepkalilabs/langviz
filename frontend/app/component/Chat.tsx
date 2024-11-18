@@ -130,8 +130,6 @@ const Chat: React.FC<ChatProps> = ({ originalData, dataResponse }) => {
     return <div>Loading chart data and configuration...</div>;
   }
 
-
-
   return (
     <div className="flex flex-col h-full">
       <div className="flex-grow overflow-y-auto p-4">

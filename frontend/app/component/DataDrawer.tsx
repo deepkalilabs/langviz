@@ -15,10 +15,8 @@ import {
   DrawerHeader,
 } from "@/components/ui/drawer"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
-
-
-import DataTable from "./DataTable" // Assuming this is the correct import path
+import SyntaxHighlighter from 'react-syntax-highlighter';
+import DataTable from "./DataTable" 
 
 interface DataDrawerProps {
   isOpen: boolean
@@ -26,6 +24,8 @@ interface DataDrawerProps {
   originalData: DataSet | null
   chartData: ChartData | null
 }
+
+
 
 export function DataDrawer({ isOpen, onClose, originalData, chartData }: DataDrawerProps) {
   console.log("originalData", originalData);
